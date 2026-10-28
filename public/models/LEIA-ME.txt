@@ -1,0 +1,12 @@
+Coloque aqui os modelos dos magos em formato GLB/GLTF:
+
+  ignis.glb    (mago do jogador)
+  glacia.glb   (mago do rival)
+
+O jogo detecta o arquivo sozinho. Se ele não existir, usa o mago procedural (placeholder).
+
+Contrato de animação (nomes dos clipes, não diferencia maiúsculas; basta o nome CONTER o trecho):
+  idle, run, swing, win, lose
+Os nomes podem ser ajustados em src/characters/roster.js (campo "clips").
+O modelo deve olhar para +Z. Se olhar para outro lado, ajuste "yawOffset" (em radianos) no roster.
+Escala: o mago procedural tem cerca de 2,8 unidades de altura (com chapéu); ajuste "scale" no roster.

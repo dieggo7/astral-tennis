@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { arenaConfig, getFitPoints } from '../config/constants.js';
+import { arenaConfig, gameConfig, getFitPoints } from '../config/constants.js';
 import { Court } from '../arena/Court.js';
 import { LightBarrier } from '../arena/LightBarrier.js';
 import { Obelisks } from '../arena/Obelisks.js';
@@ -15,6 +15,12 @@ import { ChaosOrb } from '../objects/ChaosOrb.js';
 import { CameraRig } from './Camera.js';
 import { LightingRig } from './Lighting.js';
 import { pointUniforms, updatePointScale } from '../utils/softPoints.js';
+import { AimMarker, BounceMarks } from '../arena/CourtMarkers.js';
+import { Match } from '../sim/Match.js';
+import { InputManager } from '../input/InputManager.js';
+import { Character } from '../characters/Character.js';
+import { ROSTER, MVP_MATCHUP } from '../characters/roster.js';
+import { Hud } from '../ui/Hud.js';
 
 export class Game {
   constructor(root) {
@@ -65,7 +71,26 @@ export class Game {
     this.obelisks = new Obelisks(cfg.barrier);
     this.banners = new Banners(cfg.court, cfg.barrier);
     this.orb = new ChaosOrb(cfg.orb, cfg.court);
-    this.arena.add(this.court.group, this.barrier.group, this.obelisks.group, this.banners.group, ...this.orb.objects);
+
+    // Gameplay: simulação pura (passo fixo) + personagens, marcadores e HUD que só a desenham.
+    this.match = new Match(gameConfig);
+    this.input = new InputManager(this.renderer.domElement);
+    this.hud = new Hud(this.root, gameConfig.winScore);
+    this.characters = {
+      player: new Character(ROSTER[MVP_MATCHUP.player], gameConfig.player.speed),
+      bot: new Character(ROSTER[MVP_MATCHUP.bot], gameConfig.bot.speed),
+    };
+    this.aimMarker = new AimMarker();
+    this.bounceMarks = new BounceMarks();
+    this.hitStop = 0;
+    this.lastScoreKey = '';
+
+    this.arena.add(
+      this.court.group, this.barrier.group, this.obelisks.group, this.banners.group,
+      this.aimMarker.group, this.bounceMarks.group,
+      this.characters.player.group, this.characters.bot.group,
+      ...this.orb.objects,
+    );
     this.scene.add(this.arena);
     this.setShadowCasters();
 
@@ -106,11 +131,62 @@ export class Game {
     });
     window.addEventListener('keydown', (e) => {
       if (!arenaConfig.debug.debugKeys) return;
-      if (e.code === 'Space') { e.preventDefault(); this.orb.reset(); }
-      if (e.code === 'KeyR') this.orb.hit();
       if (e.code === 'KeyC') this.cameraRig.toggleDebugMode();
       if (e.code === 'KeyB') this.bloomPass.enabled = !this.bloomPass.enabled;
+      if (e.code === 'KeyT') this.hud.toggleTiming();
     });
+  }
+
+  /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, marcas. */
+  handleEvents(events) {
+    const pc = gameConfig.parry;
+    for (const e of events) {
+      switch (e.type) {
+        case 'start':
+          this.hud.hideOverlay();
+          break;
+        case 'serveReady':
+          this.hud.flash(e.server === 'player' ? 'Seu saque! Clique para sacar' : 'Saque do rival', 'info', 1100);
+          break;
+        case 'serve':
+          this.orb.pulse(1);
+          this.cameraRig.shake(0.08, 0.15);
+          break;
+        case 'hit': {
+          this.characters[e.who].flashShield(e.quality);
+          this.orb.pulse(1);
+          if (e.quality === 'perfect') {
+            this.cameraRig.shake(0.38, 0.3);
+            this.hitStop = pc.hitStop;
+            this.hud.flash(e.who === 'player' ? 'PARRY PERFEITO!' : 'Parry perfeito do rival!', e.who === 'player' ? 'perfect' : 'bad', 900);
+          } else {
+            this.cameraRig.shake(0.1 + this.orb.speedRatio * 0.15, 0.2);
+          }
+          if (e.who === 'player') this.hud.setTiming(e.error, e.quality);
+          break;
+        }
+        case 'bounce':
+          this.orb.pulse(0.5);
+          this.bounceMarks.spawn(e.x, e.z, e.inside);
+          break;
+        case 'net':
+          this.barrier.pulse(this.orb.position, 0.6 + this.orb.speedRatio);
+          this.cameraRig.shake(0.06 + this.orb.speedRatio * 0.1, 0.2);
+          break;
+        case 'point':
+          this.hud.flash(
+            `${e.reason}  ${e.winner === 'player' ? '+1 pra você' : '+1 pro rival'}`,
+            e.winner === 'player' ? 'good' : 'bad', 1500,
+          );
+          this.cameraRig.shake(0.15, 0.25);
+          break;
+        case 'matchOver':
+          this.hud.showEnd(e.winner === 'player', e.score);
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   start() {
@@ -124,13 +200,36 @@ export class Game {
 
     this.arena.position.y = Math.sin(time * arenaConfig.court.floatSpeed) * arenaConfig.court.floatAmplitude;
 
-    this.orb.update(dt);
-    const ev = this.orb.consumeEvents();
-    if (ev.cross) {
-      this.barrier.pulse(this.orb.position, 0.6 + this.orb.speedRatio);
-      this.cameraRig.shake(0.08 + this.orb.speedRatio * 0.12, 0.2);
+    // --- entrada -> simulação (passo fixo dentro do Match) -> eventos
+    const intent = this.input.read(this.camera, this.arena);
+    const match = this.match;
+    if (match.phase === 'ready' && intent.press) {
+      match.start();
+      intent.press = false; // o clique de "começar" não vira saque
+    } else if (match.phase === 'over' && intent.press && match.phaseTime > 0.8) {
+      match.restart();
+      intent.press = false;
     }
-    if (ev.hit) this.cameraRig.shake(0.1 + this.orb.speedRatio * 0.2, 0.25);
+    let simDt = dt;
+    if (this.hitStop > 0) { this.hitStop -= dt; simDt = 0; }
+    match.update(simDt, intent);
+    this.handleEvents(match.consumeEvents());
+
+    // --- visual
+    this.orb.update(dt, match.ball);
+    this.characters.player.update(dt, time, match.fighters.player);
+    this.characters.bot.update(dt, time, match.fighters.bot);
+    this.bounceMarks.update(dt);
+    const aimZ = Math.min(intent.aimZ, -0.8);
+    this.aimMarker.update(
+      time, intent.aimX, aimZ, match.rules.isInside(intent.aimX, aimZ),
+      match.phase === 'serve' || match.phase === 'rally',
+    );
+    const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
+    if (scoreKey !== this.lastScoreKey) {
+      this.lastScoreKey = scoreKey;
+      this.hud.setScore(match.state.score, match.state.server);
+    }
 
     this.court.update(time);
     this.barrier.setTint(this.orb.color);

@@ -6,9 +6,9 @@ import { createSoftPoints } from '../utils/softPoints.js';
 const TRAIL_LEN = 40;
 
 /**
- * Orbe do Caos. Tudo em espaço local da arena.
- * Física só de teste: quique no chão, paredes laterais e "rebatidas" automáticas
- * nas linhas de fundo (autoRally), que aceleram o orbe e mudam a cor.
+ * Orbe do Caos: apenas a REPRESENTAÇÃO VISUAL (espaço local da arena).
+ * A física vive em sim/BallPhysics.js; aqui só lemos o estado (posição e velocidade
+ * nominal do rali) e cuidamos de cor, brilho, sombra e rastro.
  */
 export class ChaosOrb {
   constructor(config, courtConfig) {
@@ -17,13 +17,10 @@ export class ChaosOrb {
     this.group = new THREE.Group();   // acompanha a posição do orbe
     this.shadow = null;               // sombra na quadra (adicionada separadamente)
     this.position = new THREE.Vector3();
-    this.velocity = new THREE.Vector3();
     this.color = new THREE.Color('#3da5ff');
     this.speed = config.baseSpeed;
     this.speedRatio = 0;
     this.flash = 0;
-    this.bounceSpeed = Math.sqrt(2 * config.gravity * config.bounceApex);
-    this.events = { bounce: false, hit: false, cross: false };
     this.accum = 0;
 
     const r = config.radius;
@@ -65,66 +62,30 @@ export class ChaosOrb {
 
   reset() {
     this.speed = this.config.baseSpeed;
-    this.position.set(1.5, 1.4, this.courtConfig.length / 2 - 3);
-    this.setHorizontalVelocity(new THREE.Vector3(-0.28, 0, -1));
-    this.velocity.y = this.bounceSpeed;
     this.history.forEach((h) => h.copy(this.position));
     this.updateRatio();
     this.flash = 1;
   }
 
-  setHorizontalVelocity(dir) {
-    dir.y = 0;
-    dir.normalize().multiplyScalar(this.speed);
-    this.velocity.x = dir.x;
-    this.velocity.z = dir.z;
-  }
-
-  /** Rebatida simulada (tecla R ou fundo da quadra): acelera e muda de cor. */
-  hit() {
-    this.speed = Math.min(this.speed * this.config.hitMultiplier, this.config.maxSpeed);
-    this.setHorizontalVelocity(new THREE.Vector3(this.velocity.x, 0, this.velocity.z));
-    this.velocity.y = this.bounceSpeed * 1.15;
-    this.flash = 1;
-    this.events.hit = true;
+  /** Pulso de brilho (rebatida, quique, Parry perfeito). */
+  pulse(amount = 1) {
+    this.flash = Math.max(this.flash, amount);
   }
 
   updateRatio() {
     this.speedRatio = clamp((this.speed - this.config.baseSpeed) / (this.config.maxSpeed - this.config.baseSpeed), 0, 1);
   }
 
-  update(dt) {
+  /** Sincroniza com o estado da física (BallPhysics) e atualiza o visual. */
+  update(dt, ball) {
     const c = this.config;
     const r = c.radius;
-    const prevZ = this.position.z;
 
-    this.velocity.y -= c.gravity * dt;
-    this.position.addScaledVector(this.velocity, dt);
-
-    if (this.position.y < r) {
-      this.position.y = r;
-      this.velocity.y = this.bounceSpeed;
-      this.events.bounce = true;
-      this.flash = Math.max(this.flash, 0.5);
-    }
-    const hx = this.courtConfig.width / 2 - r;
-    if (Math.abs(this.position.x) > hx) {
-      this.position.x = Math.sign(this.position.x) * hx;
-      this.velocity.x *= -1;
-    }
-    const hz = this.courtConfig.length / 2 - r;
-    if (Math.abs(this.position.z) > hz) {
-      this.position.z = Math.sign(this.position.z) * hz;
-      this.velocity.z *= -1;
-      if (c.autoRally) {
-        // Depois de atingir a velocidade máxima, volta ao ritmo calmo (para o teste não travar)
-        if (this.speed >= c.maxSpeed * 0.98) this.speed = c.baseSpeed;
-        this.velocity.x += (Math.random() - 0.5) * 3;
-        this.hit();
-      }
-    }
-    if (prevZ * this.position.z < 0) this.events.cross = true;
-
+    const h0 = this.history[0];
+    const jump = (ball.x - h0.x) ** 2 + (ball.y - h0.y) ** 2 + (ball.z - h0.z) ** 2;
+    if (jump > 36) this.history.forEach((h) => h.set(ball.x, ball.y, ball.z)); // salto (novo saque): sem rastro esticado
+    this.position.set(ball.x, ball.y, ball.z);
+    this.speed = ball.speed;
     this.updateRatio();
     orbColor(this.speedRatio, c, this.color);
     this.flash = Math.max(0, this.flash - dt * 3);
@@ -166,12 +127,5 @@ export class ChaosOrb {
       alpha.setX(i, k * k * (0.35 + this.speedRatio * 0.5));
     }
     pos.needsUpdate = col.needsUpdate = size.needsUpdate = alpha.needsUpdate = true;
-  }
-
-  /** Lê e zera os eventos desta passada (quique, rebatida, travessia da rede). */
-  consumeEvents() {
-    const e = { ...this.events };
-    this.events.bounce = this.events.hit = this.events.cross = false;
-    return e;
   }
 }
