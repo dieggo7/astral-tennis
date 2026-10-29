@@ -137,3 +137,9 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Buffer de interpolacao reduzido para 55 ms e ajustado automaticamente conforme jitter de chegada e ping; extrapolacao curta mantem lutadores em movimento entre snapshots.
 - Removidas ordenacao e clonagem profunda em cada frame; a amostragem agora clona apenas os objetos visuais necessarios e interpola velocidade/animacao.
 - Verificado: `npm run networktest`, `npm run simtest`, `npm run build` e `git diff --check`.
+
+## Rodada 11 - personagens e habilidades online
+- Os comandos E/Q enviados como `ability`/`ultimate` agora tambem alimentam os buffers do fighter PLAYER, corrigindo habilidades indisponiveis para o host.
+- Ao iniciar, HUD e dicas usam os nomes e descricoes das habilidades do personagem escolhido no lobby; ao sair, a selecao local anterior e restaurada.
+- Teste de rede confirma que os buffers de habilidade sao acionados para host e convidado.
+- Verificado: `npm run networktest`, `npm run simtest`, `npm run build`.

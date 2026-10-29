@@ -107,10 +107,15 @@ try {
   }
   assert.ok(liveRoom.match.fighters.bot.x > guestX + 0.1, "the second human controls the rival slot instead of leaving it to the bot");
   guest.emit("input", { seq: 13, moveX: 0, moveZ: 0, aimX: 0, aimZ: 6 });
+  host.emit("input", { seq: 1, moveX: 0, moveZ: 0, aimX: 0, aimZ: -6, ability: true, ultimate: true });
+  guest.emit("input", { seq: 14, moveX: 0, moveZ: 0, aimX: 0, aimZ: 6, ability: true, ultimate: true });
+  await new Promise((resolve) => setTimeout(resolve, 24));
+  assert.ok(liveRoom.match.fighters.player.dashBuffer > 0 && liveRoom.match.fighters.player.meteorBuffer > 0, "the room host's ability inputs reach the authoritative player fighter");
+  assert.ok(liveRoom.match.fighters.bot.dashBuffer > 0 && liveRoom.match.fighters.bot.meteorBuffer > 0, "the guest's ability inputs reach the authoritative rival fighter");
   await new Promise((resolve) => setTimeout(resolve, 350));
   const playerX = liveRoom.match.fighters.player.x;
   const botX = liveRoom.match.fighters.bot.x;
-  for (let seq = 1; seq <= 12; seq += 1) {
+  for (let seq = 2; seq <= 13; seq += 1) {
     host.emit("input", { seq, moveX: 1, moveZ: 0, aimX: 0, aimZ: -6 });
     await new Promise((resolve) => setTimeout(resolve, 20));
   }

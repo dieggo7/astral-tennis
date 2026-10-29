@@ -381,6 +381,7 @@ export class Game {
     this.arena.rotation.y = this.match.fighters[this.localFighterId].sign < 0 ? Math.PI : 0;
     for (const player of data.players || []) this.match.setFighterCharacter(player.fighterId, player.characterId);
     this.syncOnlineRoster(data.players || []);
+    this.hud.selectCharacter(own.characterId, false);
     this.match.start();
     this.match.consumeEvents();
     this.match.phase = "ready";
@@ -404,6 +405,7 @@ export class Game {
     this.characters.bot = this.localBotCharacter;
     this.characters.player.group.visible = true;
     this.characters.bot.group.visible = true;
+    this.hud.selectCharacter(this.selectedCharacterId, false);
     this.match = new Match(this.gameConfig);
     this.match.setPlayerCharacter(this.selectedCharacterId);
     this.hud.overlay.classList.remove("hidden");

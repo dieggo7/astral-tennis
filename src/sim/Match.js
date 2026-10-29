@@ -390,8 +390,8 @@ export class Match {
       p.buffer = this.cfg.parry.bufferTime;
       p.bufferType = "strong";
     }
-    if (humanIntent.dashPress) p.dashBuffer = 0.16;
-    if (humanIntent.ultimatePress) p.meteorBuffer = 0.16;
+    if (humanIntent.dashPress || (this.cfg.networkMode && this.intents[PLAYER]?.ability)) p.dashBuffer = 0.16;
+    if (humanIntent.ultimatePress || (this.cfg.networkMode && this.intents[PLAYER]?.ultimate)) p.meteorBuffer = 0.16;
     if (this.cfg.networkMode) {
       for (const [id, fighterInput] of Object.entries(this.intents)) {
         const fighter = this.fighters[id];
