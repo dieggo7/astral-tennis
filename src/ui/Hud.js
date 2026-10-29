@@ -10,16 +10,12 @@ export class Hud {
         <div class="hud-side hud-foe"><i class="hud-serve" data-sb></i><span class="hud-pts" data-b>0</span><span class="hud-name">RIVAL</span></div>
       </div>
       <div class="hud-msg" data-msg></div>
-      <div class="hud-hint" data-hint>Mova: WASD / setas &nbsp;•&nbsp; Mire com o mouse &nbsp;•&nbsp; Botão esquerdo: Parry (ou sacar) &nbsp;•&nbsp; T: ver timing</div>
+      <div class="hud-hint" data-hint>Mova: WASD / setas &nbsp;•&nbsp; Mire com o mouse &nbsp;•&nbsp; Botão esquerdo: Parry / saque &nbsp;•&nbsp; Botão direito: cortada (2× velocidade; fora do perfeito, alto risco de OUT) &nbsp;•&nbsp; T: ver timing</div>
       <div class="hud-timing" data-timing hidden></div>
       <div class="hud-overlay" data-overlay>
         <h1>ASTRAL TENNIS</h1>
         <p class="hud-sub">Arena Astral &mdash; Ignis contra a Glacia</p>
-<<<<<<< HEAD
-        <p>Rebata o orbe com o <b>Parry</b>: acerte o tempo certo para devolver com o <b>dobro da velocidade</b>.<br>O saque é um minigame de timing. O orbe precisa quicar dentro das linhas da quadra rival (<b>OUT!</b> se cair fora).</p>
-=======
-        <p>Rebata o orbe com o <b>Parry</b>: acerte o tempo certo para devolver com o <b>dobro da velocidade</b>.<br>O orbe precisa quicar dentro da quadra rival. Dois quiques no seu lado e o ponto é deles.</p>
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
+        <p>Rebata o orbe com o <b>Parry</b>. Use o <b>botão direito</b> para uma cortada com o dobro da velocidade: fora do timing perfeito, ela tem 70% de chance de sair.<br>O saque é um minigame de timing. O orbe precisa quicar dentro das linhas da quadra rival (<b>OUT!</b> se cair fora).</p>
         <p class="hud-cta" data-cta>Clique para começar</p>
       </div>`;
     root.appendChild(this.el);
@@ -32,10 +28,7 @@ export class Hud {
     this.title = q('h1');
     this.sub = q('.hud-sub');
     this.body = this.overlay.querySelectorAll('p')[1];
-<<<<<<< HEAD
     this.defaultHint = this.hint.innerHTML;
-=======
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.msgTimer = 0;
   }
 
@@ -46,15 +39,9 @@ export class Hud {
     this.sbEl.classList.toggle('on', server === 'bot');
   }
 
-<<<<<<< HEAD
   /** Mensagem grande no centro (+ linha menor opcional). kind: 'perfect' | 'good' | 'bad' | 'info' */
   flash(text, kind = 'info', ms = 1200, sub = '') {
     this.msg.innerHTML = sub ? `${text}<small>${sub}</small>` : text;
-=======
-  /** Mensagem grande no centro. kind: 'perfect' | 'good' | 'bad' | 'info' */
-  flash(text, kind = 'info', ms = 1200) {
-    this.msg.textContent = text;
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.msg.className = `hud-msg ${kind}`;
     void this.msg.offsetWidth; // reinicia a animação CSS
     this.msg.classList.add('show');
@@ -77,11 +64,7 @@ export class Hud {
   }
 
   setHint(text) {
-<<<<<<< HEAD
     this.hint.innerHTML = text || this.defaultHint;
-=======
-    this.hint.innerHTML = text;
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 
   toggleTiming() {

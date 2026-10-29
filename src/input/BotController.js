@@ -35,7 +35,6 @@ export class BotController {
     };
   }
 
-<<<<<<< HEAD
   /** Mira do saque: dentro da caixa de saque diagonal (com folga das linhas). */
   serveAim(box) {
     const m = 0.8;
@@ -43,10 +42,6 @@ export class BotController {
       x: box.xMin + m + Math.random() * (box.xMax - box.xMin - 2 * m),
       z: box.zMin + m + Math.random() * (box.zMax - box.zMin - 2 * m),
     };
-=======
-  serveAim() {
-    return { x: (Math.random() * 2 - 1) * 3.5, z: 3.5 + Math.random() * 5.5 };
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 
   moveToward(out, bot, tx, tz, k = 1) {
@@ -58,11 +53,7 @@ export class BotController {
     out.moveZ = (dz / d) * s;
   }
 
-<<<<<<< HEAD
   think(dt, { bot, player, ball, rules, home }) {
-=======
-  think(dt, { bot, player, ball, rules }) {
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     const c = this.cfg;
     const out = { moveX: 0, moveZ: 0, press: false, aimX: bot.aimX, aimZ: bot.aimZ };
     const live = rules.state === 'live' && rules.lastHitter === 'player';
@@ -70,11 +61,7 @@ export class BotController {
     if (!live) {
       this.incoming = false;
       this.target = null;
-<<<<<<< HEAD
       this.moveToward(out, bot, home[0], home[1], 0.7);
-=======
-      this.moveToward(out, bot, c.home[0], c.home[1], 0.7);
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       return out;
     }
 
@@ -96,11 +83,7 @@ export class BotController {
       this.replan(bot, ball, rules);
     }
     if (!this.target) {              // vai sair: deixa passar
-<<<<<<< HEAD
       this.moveToward(out, bot, home[0], home[1], 0.5);
-=======
-      this.moveToward(out, bot, c.home[0], c.home[1], 0.5);
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       return out;
     }
 

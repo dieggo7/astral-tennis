@@ -346,7 +346,6 @@ export class Court {
   }
 
   buildGoldLines(c) {
-<<<<<<< HEAD
     const W = c.width, L = c.length;
     const hx = W / 2, hz = L / 2;
     const single = hx - 1.5, service = c.serviceLine ?? 6.2;
@@ -378,42 +377,6 @@ export class Court {
     addTo(inner, 0, -hz + 0.35, iw, 0.7, 0.04, 0.4);  // marcas centrais
     addTo(inner, 0, hz - 0.35, iw, 0.7, 0.04, 0.4);
     addTo(inner, 0, 0, W + iw, 0.22, 0.04, 0.4);      // linha da rede (no chão)
-=======
-    const W = c.width,
-      L = c.length;
-    const lineW = 0.14,
-      h = 0.035;
-    const boxes = [];
-    const glow = [];
-    const addLine = (cx, cz, sx, sz, w = lineW) => {
-      const g = new THREE.BoxGeometry(sx, h, sz);
-      g.translate(cx, h / 2, cz);
-      boxes.push(g);
-      const gg = new THREE.BoxGeometry(
-        sx + (sx > sz ? 0 : 0.4),
-        0.01,
-        sz + (sz > sx ? 0 : 0.4),
-      );
-      gg.translate(cx, 0.008, cz);
-      glow.push(gg);
-    };
-    const hx = W / 2,
-      hz = L / 2,
-      single = hx - 1.5,
-      service = 6.2;
-    addLine(0, -hz, W + lineW, lineW); // linha de fundo
-    addLine(0, hz, W + lineW, lineW);
-    addLine(-hx, 0, lineW, L); // laterais
-    addLine(hx, 0, lineW, L);
-    addLine(-single, 0, lineW, L); // simples
-    addLine(single, 0, lineW, L);
-    addLine(0, -service, single * 2, lineW); // linhas de saque
-    addLine(0, service, single * 2, lineW);
-    addLine(0, 0, lineW, service * 2); // saque central
-    addLine(0, -hz + 0.25, lineW, 0.5); // marcas centrais
-    addLine(0, hz - 0.25, lineW, 0.5);
-    addLine(0, 0, W + lineW, 0.22, 0.22); // linha da rede
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 
     const boundaryMat = new THREE.MeshStandardMaterial({
       color: this.config.gold, emissive: new THREE.Color(this.config.gold), emissiveIntensity: c.lineBrightness ?? 0.8,
@@ -432,15 +395,7 @@ export class Court {
     this.group.add(inLines);
 
     const glowMat = new THREE.MeshBasicMaterial({
-<<<<<<< HEAD
       color: this.config.gold, transparent: true, opacity: c.lineGlow ?? 0.05, blending: THREE.AdditiveBlending, depthWrite: false,
-=======
-      color: this.config.gold,
-      transparent: true,
-      opacity: 0.05,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     });
     this.group.add(new THREE.Mesh(mergeGeometries(glow), glowMat));
   }

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import * as THREE from 'three';
-=======
-import * as THREE from "three";
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 const ease = (t) => t * t * (3 - 2 * t);
@@ -13,7 +9,6 @@ const ease = (t) => t * t * (3 - 2 * t);
  */
 export function buildProceduralWizard(def) {
   const root = new THREE.Group();
-<<<<<<< HEAD
   const body = new THREE.Group();      // balança/inclina
   root.add(body);
 
@@ -30,94 +25,26 @@ export function buildProceduralWizard(def) {
   belt.rotation.x = Math.PI / 2;
   belt.position.y = 1.08;
   const hem = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.04, 8, 28), trimMat);
-=======
-  const body = new THREE.Group(); // balança/inclina
-  root.add(body);
-
-  const robeMat = new THREE.MeshStandardMaterial({
-    color: def.color,
-    roughness: 0.55,
-    emissive: def.color,
-    emissiveIntensity: 0.18,
-  });
-  const trimMat = new THREE.MeshStandardMaterial({
-    color: def.accent,
-    roughness: 0.35,
-    metalness: 0.4,
-    emissive: def.accent,
-    emissiveIntensity: 0.35,
-  });
-  const skinMat = new THREE.MeshStandardMaterial({
-    color: "#f1c9a5",
-    roughness: 0.7,
-  });
-  const hatMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(def.color).multiplyScalar(0.55),
-    roughness: 0.6,
-  });
-
-  const robe = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.3, 0.62, 1.15, 20),
-    robeMat,
-  );
-  robe.position.y = 0.58;
-  const chest = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.31, 0.3, 6, 16),
-    robeMat,
-  );
-  chest.position.y = 1.3;
-  const belt = new THREE.Mesh(
-    new THREE.TorusGeometry(0.33, 0.05, 8, 24),
-    trimMat,
-  );
-  belt.rotation.x = Math.PI / 2;
-  belt.position.y = 1.08;
-  const hem = new THREE.Mesh(
-    new THREE.TorusGeometry(0.62, 0.04, 8, 28),
-    trimMat,
-  );
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   hem.rotation.x = Math.PI / 2;
   hem.position.y = 0.05;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 20, 16), skinMat);
   head.position.y = 1.82;
-<<<<<<< HEAD
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 24), hatMat);
-=======
-  const brim = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.5, 0.05, 24),
-    hatMat,
-  );
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   brim.position.y = 1.98;
   const hat = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.85, 20), hatMat);
   hat.position.set(0, 2.42, -0.04);
   hat.rotation.x = -0.18;
-<<<<<<< HEAD
   const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 24), trimMat);
-=======
-  const hatBand = new THREE.Mesh(
-    new THREE.TorusGeometry(0.34, 0.035, 8, 24),
-    trimMat,
-  );
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   hatBand.rotation.x = Math.PI / 2;
   hatBand.position.y = 2.06;
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
   nose.position.set(0, 1.8, 0.25);
   body.add(robe, chest, belt, hem, head, brim, hat, hatBand, nose);
-<<<<<<< HEAD
   body.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-=======
-  body.traverse((o) => {
-    if (o.isMesh) o.castShadow = true;
-  });
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 
   // Braço + varinha (pivô no ombro direito)
   const armPivot = new THREE.Group();
   armPivot.position.set(0.38, 1.5, 0);
-<<<<<<< HEAD
   const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.62, 10), robeMat);
   arm.rotation.x = Math.PI / 2;
   arm.position.z = 0.31;
@@ -125,25 +52,6 @@ export function buildProceduralWizard(def) {
   wand.rotation.x = Math.PI / 2;
   wand.position.z = 0.9;
   const tipMat = new THREE.MeshStandardMaterial({ color: '#201020', emissive: def.accent, emissiveIntensity: 2.4 });
-=======
-  const arm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.075, 0.09, 0.62, 10),
-    robeMat,
-  );
-  arm.rotation.x = Math.PI / 2;
-  arm.position.z = 0.31;
-  const wand = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.03, 1.0, 8),
-    new THREE.MeshStandardMaterial({ color: "#4a2b16", roughness: 0.7 }),
-  );
-  wand.rotation.x = Math.PI / 2;
-  wand.position.z = 0.9;
-  const tipMat = new THREE.MeshStandardMaterial({
-    color: "#201020",
-    emissive: def.accent,
-    emissiveIntensity: 2.4,
-  });
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), tipMat);
   tip.position.z = 1.42;
   armPivot.add(arm, wand, tip);
@@ -152,47 +60,14 @@ export function buildProceduralWizard(def) {
   // Escudo repulsor (a "raquete"): só aparece durante o golpe
   const shield = new THREE.Group();
   shield.position.set(0.2, 1.5, 1.15);
-<<<<<<< HEAD
   const shieldMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(def.accent).multiplyScalar(1.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false });
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.78, 0.92, 40), shieldMat);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(0.78, 40), shieldMat.clone());
-=======
-  const shieldMat = new THREE.MeshBasicMaterial({
-    color: new THREE.Color(def.accent).multiplyScalar(1.6),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.78, 0.92, 40),
-    shieldMat,
-  );
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(0.78, 40),
-    shieldMat.clone(),
-  );
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   disc.material.opacity = 0;
   shield.add(ring, disc);
   root.add(shield);
 
-<<<<<<< HEAD
   const rig = { body, armPivot, shield, shieldMat, discMat: disc.material, tipMat, flash: 0, flashColor: new THREE.Color(), runPhase: 0 };
-=======
-  const rig = {
-    body,
-    armPivot,
-    shield,
-    shieldMat,
-    discMat: disc.material,
-    tipMat,
-    flash: 0,
-    flashColor: new THREE.Color(),
-    runPhase: 0,
-  };
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   return { object: root, rig, mixer: null, fallback: true };
 }
 
@@ -224,17 +99,10 @@ export function animateWizard(rig, st, dt, time, maxSpeed) {
     shieldScale = 0.7 + t * 0.7;
     leanX += 0.18 * Math.sin(t * Math.PI);
   }
-<<<<<<< HEAD
   if (st.mood === 'win') {
     armRot = -2.5 + Math.sin(time * 9) * 0.25;
     bob = Math.abs(Math.sin(time * 6)) * 0.35;
   } else if (st.mood === 'lose') {
-=======
-  if (st.mood === "win") {
-    armRot = -2.5 + Math.sin(time * 9) * 0.25;
-    bob = Math.abs(Math.sin(time * 6)) * 0.35;
-  } else if (st.mood === "lose") {
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     leanX = 0.35;
     armRot = 0.9;
     bob = -0.04;

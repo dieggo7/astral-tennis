@@ -11,6 +11,7 @@ export class InputManager {
     this.dom = domElement;
     this.keys = new Set();
     this.pressQueued = false;
+    this.strongPressQueued = false;
     this.ndc = new THREE.Vector2(0, -0.3);
     this.raycaster = new THREE.Raycaster();
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -30,6 +31,7 @@ export class InputManager {
     });
     window.addEventListener('pointerdown', (e) => {
       if (e.button === 0) this.pressQueued = true;
+      if (e.button === 2) this.strongPressQueued = true;
     });
     window.addEventListener('contextmenu', (e) => e.preventDefault());
   }
@@ -59,7 +61,9 @@ export class InputManager {
     const moveZ = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
     const aim = this.updateAim(camera, arena);
     const press = this.pressQueued;
+    const strongPress = this.strongPressQueued;
     this.pressQueued = false;
-    return { moveX, moveZ, press, aimX: aim.x, aimZ: aim.z };
+    this.strongPressQueued = false;
+    return { moveX, moveZ, press, strongPress, aimX: aim.x, aimZ: aim.z };
   }
 }

@@ -15,8 +15,8 @@ export const TUNING = {
   SERVE_TIMEOUT: 3,            // s: tempo máximo do saque antes do saque automático fraco
   SERVE_ALTERNATE_EVERY: 1,    // alterna o sacador a cada N pontos (1 ou 2)
   SERVE_ATTEMPTS: 2,           // saques por ponto (falta no 1º = 2º saque; falta no 2º = dupla falta)
-  SERVE_TIMING_MIN: 0.8,       // s: o instante perfeito do saque é sorteado entre MIN e MAX (a cada saque)
-  SERVE_TIMING_MAX: 1.7,
+  SERVE_TIMING_MIN: 0.45,      // s: faixa ampla para variar o ritmo do minigame
+  SERVE_TIMING_MAX: 1.85,
   LINE_BRIGHTNESS: 0.8,        // brilho das linhas de limite da quadra (>1 faz brilhar no bloom)
   LINE_INNER_BRIGHTNESS: 0.35, // brilho das linhas internas (saque, centro)
   LINE_GLOW: 0.05,             // halo aditivo em volta das linhas
@@ -57,11 +57,7 @@ export const arenaConfig = {
   },
   orb: {
     // Só o visual do orbe. A física e as regras ficam em gameConfig (abaixo).
-<<<<<<< HEAD
     radius: TUNING.BALL_RADIUS,
-=======
-    radius: 0.6,
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     baseSpeed: 13,      // velocidade de saque (razão 0 da cor)
     maxSpeed: 30,       // velocidade máxima do rali (razão 1 da cor)
     colorStops: [
@@ -104,7 +100,6 @@ export const arenaConfig = {
 // Tudo que é "feeling" (timing do Parry, bot, velocidades) fica aqui para ajuste rápido.
 export const gameConfig = {
   winScore: 15,            // 15 ou 25 pontos
-<<<<<<< HEAD
   netHeight: NET_HEIGHT_UNITS, // borda inferior do orbe precisa passar acima disto
   pointPause: 1.8,         // pausa depois de cada ponto (s)
   serveDelayBot: 1.1,      // tempo até o bot sacar (s)
@@ -136,12 +131,6 @@ export const gameConfig = {
     standX: 3.0, standZ: 11.2,   // onde o sacador fica (x alterna entre os lados)
     receiverX: 2.6,              // onde o receptor espera (no lado da caixa de saque)
   },
-=======
-  netHeight: 1.0,          // altura mínima (borda inferior do orbe) para passar pela barreira
-  pointPause: 1.8,         // pausa depois de cada ponto (s)
-  serveDelayBot: 1.1,      // tempo até o bot sacar (s)
-  court: { width: 12, length: 24, margin: 1.5, tolerance: 0.3 }, // tolerance: linha vale como dentro
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   ball: {
     radius: arenaConfig.orb.radius,
     baseSpeed: arenaConfig.orb.baseSpeed,
@@ -156,23 +145,18 @@ export const gameConfig = {
   parry: {
     duration: 0.34,        // duração da animação/janela ativa do escudo (s)
     sweetTime: 0.12,       // instante "secreto" ideal do contato, contado a partir do clique (s)
-<<<<<<< HEAD
     perfectWindow: TUNING.PERFECT_PARRY_WINDOW, // tolerância em volta do sweetTime (s)
-=======
-    perfectWindow: 0.07,   // tolerância em volta do sweetTime para Parry perfeito (s)
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     cooldownMiss: 0.45,    // recarga quando erra (evita spam de cliques)
     cooldownHit: 0.18,     // recarga quando acerta
     reach: 2.1,            // raio de alcance do escudo (unidades)
     swingMoveFactor: 0.5,  // velocidade de movimento durante o golpe
     bufferTime: 0.12,      // clique guardado se vier um pouco antes de poder golpear (s)
-<<<<<<< HEAD
-=======
-    scatterNormal: 1.1,    // imprecisão da rebatida normal (raio em unidades)
-    scatterPerfect: 0.15,
-    scatterServe: 0.6,
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     hitStop: 0.07,         // congelada rápida no Parry perfeito (s)
+  },
+  smash: {
+    speedMultiplier: 2,
+    imperfectOutChance: 0.7,
+    perfectAimError: 0.2, // desvio máximo como fração da meia quadra (20%)
   },
   player: { speed: 9.5, accel: 55, minZ: 1.2, home: [0, 9.5] },
   bot: {
@@ -181,12 +165,8 @@ export const gameConfig = {
     missChance: 0.08,      // chance de nem tentar rebater uma bola
     timingJitter: 0.06,    // erro de timing do clique (s)
     positionError: 0.7,    // erro ao escolher o ponto de interceptação
-<<<<<<< HEAD
     aimDeviationMult: 0.9, // multiplicador do desvio de mira do rival
     serveQuality: { perfect: 0.2, good: 0.6 }, // resto = saque ruim
-=======
-    scatter: 1.7,          // imprecisão da mira
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     aimSpread: 4.5,
     aimMargin: 1.0,        // distância mínima das linhas ao mirar
     perfectChance: 0.08,   // chance de converter um Parry perfeito em perfeito de verdade

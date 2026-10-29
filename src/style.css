@@ -89,7 +89,6 @@ canvas {
   opacity: 0;
   text-shadow: 0 0 22px currentColor, 0 4px 0 rgba(0, 0, 0, 0.35);
 }
-<<<<<<< HEAD
 .hud-msg small {
   display: block;
   margin-top: 4px;
@@ -99,8 +98,6 @@ canvas {
   text-transform: uppercase;
   opacity: 0.9;
 }
-=======
->>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 .hud-msg.show { animation: hudPop 1.2s ease-out forwards; }
 .hud-msg.perfect { color: #ffe27a; }
 .hud-msg.good { color: #9be8ff; }
