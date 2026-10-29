@@ -15,9 +15,13 @@ import { ChaosOrb } from '../objects/ChaosOrb.js';
 import { CameraRig } from './Camera.js';
 import { LightingRig } from './Lighting.js';
 import { pointUniforms, updatePointScale } from '../utils/softPoints.js';
+<<<<<<< HEAD
 import { AimMarker, BounceMarks, ServeBox, ServeRing } from '../arena/CourtMarkers.js';
 import { Burst } from '../effects/Burst.js';
 import { rallyRegion, boxRegion, riskAt, deviationDeg, clampToBox } from '../sim/Aim.js';
+=======
+import { AimMarker, BounceMarks } from '../arena/CourtMarkers.js';
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 import { Match } from '../sim/Match.js';
 import { InputManager } from '../input/InputManager.js';
 import { Character } from '../characters/Character.js';
@@ -84,16 +88,24 @@ export class Game {
     };
     this.aimMarker = new AimMarker();
     this.bounceMarks = new BounceMarks();
+<<<<<<< HEAD
     this.serveBox = new ServeBox();
     this.serveRing = new ServeRing();
     this.burst = new Burst();
     this.hitStop = 0;
     this.slowTimer = 0;     // slow motion (segundos reais restantes)
+=======
+    this.hitStop = 0;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.lastScoreKey = '';
 
     this.arena.add(
       this.court.group, this.barrier.group, this.obelisks.group, this.banners.group,
+<<<<<<< HEAD
       this.serveBox.group, this.aimMarker.group, this.bounceMarks.group, this.serveRing.group, this.burst.points,
+=======
+      this.aimMarker.group, this.bounceMarks.group,
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       this.characters.player.group, this.characters.bot.group,
       ...this.orb.objects,
     );
@@ -143,16 +155,23 @@ export class Game {
     });
   }
 
+<<<<<<< HEAD
   /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, partículas, slow motion. */
   handleEvents(events) {
     const pc = gameConfig.parry;
     const who = (w) => (w === 'player' ? 'Ponto seu' : 'Ponto do rival');
+=======
+  /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, marcas. */
+  handleEvents(events) {
+    const pc = gameConfig.parry;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     for (const e of events) {
       switch (e.type) {
         case 'start':
           this.hud.hideOverlay();
           break;
         case 'serveReady':
+<<<<<<< HEAD
           this.hud.setHint('');
           this.hud.flash(
             e.server === 'player' ? 'Seu saque' : 'Saque do rival', 'info', 1100,
@@ -182,6 +201,14 @@ export class Game {
           }
           break;
         }
+=======
+          this.hud.flash(e.server === 'player' ? 'Seu saque! Clique para sacar' : 'Saque do rival', 'info', 1100);
+          break;
+        case 'serve':
+          this.orb.pulse(1);
+          this.cameraRig.shake(0.08, 0.15);
+          break;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
         case 'hit': {
           this.characters[e.who].flashShield(e.quality);
           this.orb.pulse(1);
@@ -198,13 +225,17 @@ export class Game {
         case 'bounce':
           this.orb.pulse(0.5);
           this.bounceMarks.spawn(e.x, e.z, e.inside);
+<<<<<<< HEAD
           if (e.inside) this.burst.emit(e.x, 0.1, e.z, { count: 7, color: '#7dffb0', speed: 2.2, up: 2.2, life: 0.4, size: 0.16 });
           else this.burst.emit(e.x, 0.1, e.z, { count: 16, color: '#ff4a4a', speed: 3, up: 3, life: 0.6, size: 0.2 });
+=======
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
           break;
         case 'net':
           this.barrier.pulse(this.orb.position, 0.6 + this.orb.speedRatio);
           this.cameraRig.shake(0.06 + this.orb.speedRatio * 0.1, 0.2);
           break;
+<<<<<<< HEAD
         case 'out':
           // OUT!: mensagem, explosão de partículas no ponto do quique e slow motion.
           this.burst.emit(e.x, 0.1, e.z, { count: 70, color: '#ff3a3a', speed: 6, up: 5, life: 1.0, size: 0.32 });
@@ -222,6 +253,13 @@ export class Game {
           if (e.kind === 'doubleFault') this.hud.flash('DUPLA FALTA!', e.winner === 'player' ? 'good' : 'bad', 1500, who(e.winner));
           else if (e.kind === 'ace') this.hud.flash('ACE!', e.winner === 'player' ? 'perfect' : 'bad', 1500, who(e.winner));
           else this.hud.flash(e.reason, e.winner === 'player' ? 'good' : 'bad', 1500, who(e.winner));
+=======
+        case 'point':
+          this.hud.flash(
+            `${e.reason}  ${e.winner === 'player' ? '+1 pra você' : '+1 pro rival'}`,
+            e.winner === 'player' ? 'good' : 'bad', 1500,
+          );
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
           this.cameraRig.shake(0.15, 0.25);
           break;
         case 'matchOver':
@@ -254,15 +292,20 @@ export class Game {
       match.restart();
       intent.press = false;
     }
+<<<<<<< HEAD
     // Tempo de simulação: hit-stop (congela) e slow motion (OUT!) afetam a partida e os personagens.
     let timeScale = 1;
     if (this.slowTimer > 0) { this.slowTimer -= dt; timeScale = 0.28; }
     let simDt = dt * timeScale;
+=======
+    let simDt = dt;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     if (this.hitStop > 0) { this.hitStop -= dt; simDt = 0; }
     match.update(simDt, intent);
     this.handleEvents(match.consumeEvents());
 
     // --- visual
+<<<<<<< HEAD
     const vdt = dt * timeScale;
     this.orb.update(vdt, match.ball);
     this.characters.player.update(vdt, time, match.fighters.player);
@@ -295,6 +338,17 @@ export class Game {
       inside, risk, spread,
       visible: match.phase === 'rally' || (playerServing && sInfo.active),
     });
+=======
+    this.orb.update(dt, match.ball);
+    this.characters.player.update(dt, time, match.fighters.player);
+    this.characters.bot.update(dt, time, match.fighters.bot);
+    this.bounceMarks.update(dt);
+    const aimZ = Math.min(intent.aimZ, -0.8);
+    this.aimMarker.update(
+      time, intent.aimX, aimZ, match.rules.isInside(intent.aimX, aimZ),
+      match.phase === 'serve' || match.phase === 'rally',
+    );
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
     if (scoreKey !== this.lastScoreKey) {
       this.lastScoreKey = scoreKey;

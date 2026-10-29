@@ -2,6 +2,7 @@ import { BallPhysics } from './BallPhysics.js';
 import { Rules, PLAYER, BOT, sideSign, other } from './Rules.js';
 import { MatchState } from './MatchState.js';
 import { Parry } from './Parry.js';
+<<<<<<< HEAD
 import { rallyRegion, boxRegion, riskAt, timingFactor, deviationDeg, clampToBox } from './Aim.js';
 import { BotController } from '../input/BotController.js';
 
@@ -15,6 +16,19 @@ const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
  *
  * Fases: 'ready' -> 'serve' -> 'rally' -> 'point' -> 'serve' ... -> 'over'
  * Saque: startDelay (receptor se posiciona) -> anel contrai (clique no momento certo) -> saque.
+=======
+import { BotController } from '../input/BotController.js';
+
+const STEP = 1 / 120;            // passo fixo da simulação
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+
+/**
+ * Orquestra a partida (pura, sem THREE): fases, movimento, saque, contato do Parry,
+ * regras e placar. Recebe intents como dados e devolve eventos para o jogo desenhar.
+ *
+ * Fases: 'ready' (aguardando clique) -> 'serve' -> 'rally' -> 'point' -> 'serve' ... -> 'over'
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
  */
 export class Match {
   constructor(cfg) {
@@ -24,7 +38,11 @@ export class Match {
     this.halfL = cfg.court.length / 2;
     this.ball = new BallPhysics(cfg.ball, cfg.court);
     this.rules = new Rules(cfg.court, cfg.netHeight + cfg.ball.radius);
+<<<<<<< HEAD
     this.state = new MatchState(cfg.winScore, cfg.serve.alternateEvery);
+=======
+    this.state = new MatchState(cfg.winScore);
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.bot = new BotController(cfg.bot, cfg.court, cfg.parry);
     this.fighters = {
       [PLAYER]: this.makeFighter(PLAYER),
@@ -35,6 +53,7 @@ export class Match {
     this.time = 0;
     this.phase = 'ready';
     this.phaseTime = 0;
+<<<<<<< HEAD
     this.retry = false;
     this.serveAttempt = 0;
     this.serve = null;           // { server, sideSign, box, attempt }
@@ -42,6 +61,9 @@ export class Match {
     this.serveTiming = this.rollServeTiming();
     this.intent = { moveX: 0, moveZ: 0, aimX: 0, aimZ: -6 };
     this.prepareServe();
+=======
+    this.intent = { moveX: 0, moveZ: 0, aimX: 0, aimZ: -6 };
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.resetFighters();
     this.placeHeldBall();
   }
@@ -61,6 +83,7 @@ export class Match {
     };
   }
 
+<<<<<<< HEAD
   // ---------------------------------------------------------------- saque: geometria
   /** Define sacador, lado e caixa de saque diagonal do PRÓXIMO saque (usa o placar atual). */
   prepareServe() {
@@ -87,12 +110,20 @@ export class Match {
       return [sv.boxSign * s.receiverX, sg * c.player.home[1]];
     }
     return id === PLAYER ? c.player.home : c.bot.home;
+=======
+  home(id) {
+    return id === PLAYER ? this.cfg.player.home : this.cfg.bot.home;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 
   resetFighters() {
     [PLAYER, BOT].forEach((id) => {
       const f = this.fighters[id];
+<<<<<<< HEAD
       const h = this.homeFor(id);
+=======
+      const h = this.home(id);
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       f.x = h[0]; f.z = h[1]; f.vx = f.vz = 0;
       f.yaw = f.sign > 0 ? Math.PI : 0;
       f.parry.reset(); f.buffer = 0; f.animT = -1; f.mood = 'idle';
@@ -104,9 +135,14 @@ export class Match {
   start() {
     this.state.reset(PLAYER);
     this.bot.reset();
+<<<<<<< HEAD
     this.prepareServe();
     this.resetFighters();
     this.beginServe(false);
+=======
+    this.resetFighters();
+    this.beginServe();
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.events.push({ type: 'start' });
   }
 
@@ -114,6 +150,7 @@ export class Match {
     this.start();
   }
 
+<<<<<<< HEAD
   beginServe(isRetry) {
     if (!isRetry) this.serveAttempt = 0;
     this.phase = 'serve';
@@ -148,6 +185,16 @@ export class Match {
     const lo = Math.min(s.perfectAtRange[0], hi);
     const perfectAt = lo + Math.random() * (hi - lo);
     return { perfectAt, ringDuration: perfectAt + s.afterPerfect };
+=======
+  beginServe() {
+    this.phase = 'serve';
+    this.phaseTime = 0;
+    this.rules.newPoint();
+    this.ball.reset();
+    this.fighters[PLAYER].buffer = 0;
+    this.placeHeldBall();
+    this.events.push({ type: 'serveReady', server: this.state.server });
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 
   consumeEvents() {
@@ -156,6 +203,7 @@ export class Match {
     return e;
   }
 
+<<<<<<< HEAD
   /** Estado do minigame de saque (para o anel). active=false fora do saque ou antes do anel. */
   get serveInfo() {
     const s = this.cfg.serve;
@@ -171,6 +219,8 @@ export class Match {
     };
   }
 
+=======
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   // ---------------------------------------------------------------- atualização
   /** dt variável do frame; intent do jogador = { moveX, moveZ, press, aimX, aimZ }. */
   update(dt, intent) {
@@ -200,8 +250,12 @@ export class Match {
     let pm = this.intent;
     let bi = { moveX: 0, moveZ: 0, press: false, aimX: bot.aimX, aimZ: bot.aimZ };
     if (this.phase === 'rally' || this.phase === 'serve') {
+<<<<<<< HEAD
       const home = this.phase === 'serve' ? this.homeFor(BOT) : cfg.bot.home;
       bi = this.bot.think(dt, { bot, player, ball: this.ball, rules: this.rules, home });
+=======
+      bi = this.bot.think(dt, { bot, player, ball: this.ball, rules: this.rules });
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     }
     if (walkingHome) {
       pm = this.homeIntent(player);
@@ -213,8 +267,22 @@ export class Match {
     bot.aimX = bi.aimX; bot.aimZ = bi.aimZ;
     this.faceTargets(player, bot, dt);
 
+<<<<<<< HEAD
     // --- saque (minigame): o MESMO botão do Parry
     if (this.phase === 'serve') this.stepServe(dt, player);
+=======
+    // --- saque
+    if (this.phase === 'serve') {
+      const server = this.fighters[this.state.server];
+      if (server.id === PLAYER && player.buffer > 0) {
+        player.buffer = 0;
+        this.serve(player, player.aimX, player.aimZ);
+      } else if (server.id === BOT && this.phaseTime >= cfg.serveDelayBot) {
+        const a = this.bot.serveAim();
+        this.serve(bot, a.x, a.z);
+      }
+    }
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 
     // --- golpes (Parry)
     if (player.buffer > 0) {
@@ -240,23 +308,34 @@ export class Match {
     }
 
     // --- fim da pausa de ponto
+<<<<<<< HEAD
     const pause = this.retry ? cfg.pointPause * 0.55 : cfg.pointPause;
     if (this.phase === 'point' && this.phaseTime >= pause) {
       if (this.retry) {
         this.retry = false;
         this.beginServe(true);
       } else if (this.state.over) {
+=======
+    if (this.phase === 'point' && this.phaseTime >= cfg.pointPause) {
+      if (this.state.over) {
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
         this.phase = 'over';
         this.phaseTime = 0;
         this.events.push({ type: 'matchOver', winner: this.state.winner, score: { ...this.state.score } });
       } else {
+<<<<<<< HEAD
         this.prepareServe();
         this.resetFighters();
         this.beginServe(false);
+=======
+        this.resetFighters();
+        this.beginServe();
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       }
     }
   }
 
+<<<<<<< HEAD
   stepServe(dt, player) {
     const s = this.cfg.serve;
     const sv = this.serve;
@@ -284,6 +363,10 @@ export class Match {
 
   homeIntent(f) {
     const h = this.homeFor(f.id);
+=======
+  homeIntent(f) {
+    const h = this.home(f.id);
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     const dx = h[0] - f.x, dz = h[1] - f.z;
     const d = Math.hypot(dx, dz);
     if (d < 0.1) return { moveX: 0, moveZ: 0 };
@@ -328,7 +411,11 @@ export class Match {
 
   placeHeldBall() {
     const b = this.ball;
+<<<<<<< HEAD
     const s = this.fighters[this.serve.server];
+=======
+    const s = this.fighters[this.state.server];
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     b.x = s.x;
     b.z = s.z - s.sign * 0.6;
     b.y = 1.7 + Math.sin(this.time * 3) * 0.08;
@@ -336,6 +423,7 @@ export class Match {
   }
 
   // ---------------------------------------------------------------- saque e rebatida
+<<<<<<< HEAD
   /** Executa o saque. quality: 'perfect' | 'good' | 'bad'. */
   doServe(f, quality, auto) {
     const s = this.cfg.serve, bc = this.cfg.ball;
@@ -372,6 +460,24 @@ export class Match {
       isServe = false, speedMult = 1, timingFactor: tf = 0, region, devMult = 1, quality = 'normal',
     } = opt;
     const b = this.ball, bc = this.cfg.ball, A = this.cfg.aim;
+=======
+  serve(f, aimX, aimZ) {
+    this.phase = 'rally';
+    this.phaseTime = 0;
+    this.startSwing(f);
+    this.ball.speed = this.cfg.ball.baseSpeed;
+    this.shoot(f, aimX, aimZ, 'normal', true);
+    this.events.push({ type: 'serve', who: f.id });
+  }
+
+  /**
+   * Lança o orbe de onde ele está até o alvo (aimX, aimZ) por uma parábola exata.
+   * A velocidade do rali define o tempo de voo; se a parábola bateria na barreira,
+   * o voo fica mais lento/alto (lob) o suficiente para passar por cima.
+   */
+  shoot(f, aimX, aimZ, quality, isServe) {
+    const b = this.ball, bc = this.cfg.ball, pc = this.cfg.parry;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     const r = bc.radius, g = bc.gravity;
 
     if (!isServe) {
@@ -380,6 +486,7 @@ export class Match {
         : Math.min(b.speed * bc.hitMultiplier, bc.maxSpeed);
     }
 
+<<<<<<< HEAD
     // --- desvio de mira (ângulo + profundidade)
     const reg = region || rallyRegion(this.court, f.sign);
     const risk = riskAt(aimX, aimZ, reg, A);
@@ -390,11 +497,21 @@ export class Match {
     const ca = Math.cos(ang), sa = Math.sin(ang);
     const tx = b.x + (dx0 * ca - dz0 * sa) * depth;
     let tz = b.z + (dx0 * sa + dz0 * ca) * depth;
+=======
+    const scatter = isServe ? pc.scatterServe
+      : f.id === BOT ? this.cfg.bot.scatter
+        : quality === 'perfect' ? pc.scatterPerfect : pc.scatterNormal;
+    const ang = Math.random() * TAU;
+    const rad = Math.sqrt(Math.random()) * scatter;
+    const tx = aimX + Math.cos(ang) * rad;
+    let tz = aimZ + Math.sin(ang) * rad;
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     tz = f.sign > 0 ? Math.min(tz, -0.8) : Math.max(tz, 0.8); // sempre rumo à outra metade
 
     const y0 = Math.max(b.y, r + 0.05);
     const dx = tx - b.x, dz = tz - b.z;
     const D = Math.hypot(dx, dz);
+<<<<<<< HEAD
     let T = Math.max(D / (b.speed * speedMult), 0.25);
 
     // Tempo mínimo de voo para o orbe passar por cima da rede (z = 0).
@@ -402,15 +519,29 @@ export class Match {
     const N = this.cfg.netHeight + r;
     const need = (N - y0 * (1 - fr) - fr * r) * 1.15;
     if (need > 0) T = Math.max(T, Math.min(Math.sqrt((2 * need) / (g * fr * (1 - fr))), 2.4));
+=======
+    let T = Math.max(D / b.speed, 0.25);
+
+    // Tempo mínimo de voo para o orbe passar por cima da barreira (z = 0).
+    const fr = clamp(Math.abs(b.z) / Math.abs(dz), 0.03, 0.97);
+    const N = this.cfg.netHeight + r;
+    const need = (N - y0 * (1 - fr) - fr * r) * 1.15;
+    if (need > 0) T = Math.max(T, Math.min(Math.sqrt((2 * need) / (g * fr * (1 - fr))), 2.2));
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
 
     b.vx = dx / T;
     b.vz = dz / T;
     b.vy = (r - y0 + 0.5 * g * T * T) / T;
     b.y = y0;
     b.held = false;
+<<<<<<< HEAD
     this.rules.onHit(f.id, isServe);
     this.phase = 'rally';
     return { risk, devDeg, tx, tz };
+=======
+    this.rules.onHit(f.id);
+    this.phase = 'rally';
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 
   stepBall(dt) {
@@ -421,9 +552,13 @@ export class Match {
     if (res.bounce) {
       this.events.push({
         type: 'bounce', x: res.bx, z: res.bz,
+<<<<<<< HEAD
         inside: this.rules.serveShot && this.rules.bounces === 0
           ? this.rules.inBox(res.bx, res.bz)
           : this.rules.isInside(res.bx, res.bz),
+=======
+        inside: this.rules.isInside(res.bx, res.bz),
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
       });
       verdict = this.rules.onBounce(res.bx, res.bz) || verdict;
     }
@@ -445,6 +580,7 @@ export class Match {
       const c = f.parry.connect();
       let q = c.quality;
       if (f.id === BOT && q === 'perfect' && Math.random() > this.cfg.bot.perfectChance) q = 'normal';
+<<<<<<< HEAD
       const tf = timingFactor(c.error, q, this.cfg.aim);
       const info = this.shoot(f, f.aimX, f.aimZ, {
         quality: q, timingFactor: tf,
@@ -475,15 +611,28 @@ export class Match {
   }
 
   finishPoint(winner, reason, kind) {
+=======
+      this.shoot(f, f.aimX, f.aimZ, q, false);
+      this.events.push({ type: 'hit', who: f.id, quality: q, error: c.error, x: b.x, y: b.y, z: b.z });
+    });
+  }
+
+  endPoint({ winner, reason }) {
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
     this.state.award(winner);
     this.phase = 'point';
     this.phaseTime = 0;
     if (this.state.over) {
       this.fighters[winner].mood = 'win';
       this.fighters[other(winner)].mood = 'lose';
+<<<<<<< HEAD
     } else {
       this.prepareServe();  // define já o próximo sacador/lado: eles caminham até as posições
     }
     this.events.push({ type: 'point', winner, reason, kind, score: { ...this.state.score }, over: this.state.over });
+=======
+    }
+    this.events.push({ type: 'point', winner, reason, score: { ...this.state.score }, over: this.state.over });
+>>>>>>> d06335d8faa8607b9cf40fe136addf79477a138d
   }
 }
