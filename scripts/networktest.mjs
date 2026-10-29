@@ -55,6 +55,14 @@ try {
   const firstSnapshot = await snapshot;
   assert.ok(firstSnapshot.orb && firstSnapshot.players.length === 2);
   assert.equal(app.rooms.get(created.code).status, "playing");
+  const liveRoom = app.rooms.get(created.code);
+  assert.deepEqual(liveRoom.players.map((p) => p.fighterId), ["player", "bot"]);
+  const guestX = liveRoom.match.fighters.bot.x;
+  for (let seq = 1; seq <= 12; seq += 1) {
+    guest.emit("input", { seq, moveX: 1, moveZ: 0, aimX: 0, aimZ: 6 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.ok(liveRoom.match.fighters.bot.x > guestX + 0.1, "the second human controls the rival slot instead of leaving it to the bot");
   const resumeToken = joined.token;
   guest.disconnect();
   await new Promise((resolve) => setTimeout(resolve, 250));

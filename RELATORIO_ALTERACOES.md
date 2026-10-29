@@ -111,3 +111,17 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - `npm run dev` inicia Vite e servidor. `npm run server`, `npm run networktest`, `.env.example` e README foram adicionados.
 - Verificado: build, simtest local, testes de sala/inicio/snapshot/reconexao/2v2, e inicializacao conjunta com respostas HTTP 200 e `/health` ativo.
 - Nao verificado visualmente em navegador: duas telas reais, FPS, sensacao de parry imediato, interpolacao sob latencia real e leitura do HUD online.
+
+## Rodada 7 - robustez do modo online
+- O cliente valida se o `match:start` inclui o jogador local e se o fighterId existe no modo carregado; em payload inconsistente retorna ao lobby com erro legivel.
+- `match:start` repetido na reconexao nao reinicializa o estado local antes do snapshot atual.
+- Protegidos eventos visuais de saque/golpe e atualizacao dos personagens contra referencias ausentes.
+- `networktest` agora envia movimento pelo segundo socket e confirma que o lutador `bot` e controlado pelo jogador remoto.
+- Verificado: `npm run simtest`, `npm run networktest`, `npm run build`.
+
+## Rodada 8 - perspectiva por jogador online
+- A quadra e os objetos da partida giram 180 graus para jogadores do lado B, posicionando seu lado na parte inferior da tela como no lado A.
+- Movimento horizontal e vertical acompanham a perspectiva girada; mira continua convertida pelo transform da arena.
+- Placar, indicador de saque, avisos de saque e mensagens de ponto agora usam o time/fighter local para separar jogador, parceiro e rival.
+- O HUD deixa de exibir os IDs internos `player`/`bot` e mostra o time local. Ao sair, perspectiva e personagens locais sao restaurados.
+- Verificado: `npm run build`, `npm run simtest`, `npm run networktest` e `git diff --check`.

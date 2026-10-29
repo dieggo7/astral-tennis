@@ -192,14 +192,19 @@ export class Hud {
     if (notify) this.onCharacterSelected(id);
   }
 
-  setScore(score, server) {
-    this.pEl.textContent = score.player;
-    this.bEl.textContent = score.bot;
-    const alliedServer = server === "player" || server === "A2";
-    const rivalServer = server === "bot" || server === "B2";
+  setScore(score, server, localTeam = "A") {
+    const scoreA = score.A ?? score.player ?? 0;
+    const scoreB = score.B ?? score.bot ?? 0;
+    const localIsA = localTeam === "A" || localTeam === "player";
+    this.pEl.textContent = localIsA ? scoreA : scoreB;
+    this.bEl.textContent = localIsA ? scoreB : scoreA;
+    const serverIsA = server === "player" || server === "A1" || server === "A2";
+    const serverIsB = server === "bot" || server === "B1" || server === "B2";
+    const alliedServer = localIsA ? serverIsA : serverIsB;
+    const rivalServer = localIsA ? serverIsB : serverIsA;
     this.spEl.classList.toggle("on", alliedServer);
     this.sbEl.classList.toggle("on", rivalServer);
-    const serverName = { player: "A1", A2: "A2", bot: "B1", B2: "B2" }[server] || "";
+    const serverName = { player: "A1", A1: "A1", A2: "A2", bot: "B1", B1: "B1", B2: "B2" }[server] || "";
     this.spEl.title = alliedServer ? `Saque de ${serverName}` : "";
     this.sbEl.title = rivalServer ? `Saque de ${serverName}` : "";
   }

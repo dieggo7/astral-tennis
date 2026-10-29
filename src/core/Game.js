@@ -135,6 +135,7 @@ export class Game {
     const chooseBot = () => available.splice(Math.floor(Math.random() * available.length), 1)[0];
     const botId = mode === "2v2" ? chooseBot() : MVP_MATCHUP.bot;
     this.characters.bot = new Character(ROSTER[botId], this.gameConfig.bot.speed);
+    this.localBotCharacter = this.characters.bot;
     if (mode === "2v2") {
       const allyId = chooseBot();
       const secondBotId = chooseBot();
@@ -347,19 +348,36 @@ export class Game {
   }
 
   beginOnlineMatch(data) {
-    this.online = true;
-    this.onlineStartAt = data.startsAt || Date.now();
-    const own = data.players?.find((p) => p.id === this.network.playerId);
-    if (own) {
-      this.network.acceptSession({ fighterId: own.fighterId });
-      this.localFighterId = own.fighterId;
+    // A reconnect can replay match:start immediately before the current snapshot.
+    // Rebuilding the match in that case briefly resets the remote player's view.
+    if (this.online && this.onlineSeed === data.seed) {
+      this.onlineStartAt = data.startsAt || this.onlineStartAt;
+      return;
     }
+    const own = data.players?.find((p) => p.id === this.network.playerId);
+    if (!own?.fighterId) {
+      this.online = false;
+      this.roomUI.open();
+      this.roomUI.showError("O servidor iniciou a partida sem associar seu jogador a uma vaga. Saia da sala e entre novamente.");
+      return;
+    }
+    this.online = true;
+    this.onlineSeed = data.seed;
+    this.onlineStartAt = data.startsAt || Date.now();
+    this.network.acceptSession({ fighterId: own.fighterId });
+    this.localFighterId = own.fighterId;
     this.match = new Match({
       ...this.gameConfig,
       networkMode: true,
       twoVTwo: this.gameConfig.twoVTwo ? { ...this.gameConfig.twoVTwo, AI_USE_ABILITIES: false } : undefined,
     });
-    this.match.setNetworkFighter(this.localFighterId || "player");
+    if (!this.match.setNetworkFighter(this.localFighterId)) {
+      this.online = false;
+      this.roomUI.open();
+      this.roomUI.showError("A vaga recebida não existe neste modo de jogo.");
+      return;
+    }
+    this.arena.rotation.y = this.match.fighters[this.localFighterId].sign < 0 ? Math.PI : 0;
     for (const player of data.players || []) this.match.setFighterCharacter(player.fighterId, player.characterId);
     this.syncOnlineRoster(data.players || []);
     this.match.start();
@@ -367,15 +385,24 @@ export class Game {
     this.match.phase = "ready";
     this.hud.hideOverlay();
     this.onlineStatus.hidden = false;
-    this.onlineStatus.textContent = `Conectado · voce: ${this.localFighterId || "..."} · ping: -- ms`;
+    this.onlineStatus.textContent = `Conectado · Time ${own.team} · ping: -- ms`;
   }
 
   leaveOnlineMatch() {
     this.roomUI.close();
     this.online = false;
     this.localFighterId = null;
+    this.onlineSeed = null;
+    this.arena.rotation.y = 0;
     this.onlineEvents = [];
     this.onlineStatus.hidden = true;
+    [...Object.values(this.characters), ...Object.values(this.playerCharacters), this.localBotCharacter]
+      .filter(Boolean)
+      .forEach((character) => { character.group.visible = false; });
+    this.characters.player = this.playerCharacters[this.selectedCharacterId];
+    this.characters.bot = this.localBotCharacter;
+    this.characters.player.group.visible = true;
+    this.characters.bot.group.visible = true;
     this.match = new Match(this.gameConfig);
     this.match.setPlayerCharacter(this.selectedCharacterId);
     this.hud.overlay.classList.remove("hidden");
@@ -387,11 +414,12 @@ export class Game {
     Object.values(this.characters).forEach((character) => { character.group.visible = false; });
     const used = new Set();
     for (const player of players) {
+      if (!this.match.fighters[player.fighterId] || !ROSTER[player.characterId]) continue;
       const current = this.characters[player.fighterId];
       let character = current?.def.id === player.characterId && !used.has(current)
         ? current
         : null;
-      if (!character) character = new Character(ROSTER[player.characterId], this.gameConfig.characters[player.characterId].speed);
+      if (!character) character = new Character(ROSTER[player.characterId], this.gameConfig.characters[player.characterId]?.speed || this.gameConfig.bot.speed);
       used.add(character);
       let ring = character.group.children.find((child) => child.userData.teamRing);
       if (!ring) {
@@ -418,7 +446,7 @@ export class Game {
     match.phaseTime = snapshot.phaseTime;
     Object.assign(match.ball, snapshot.orb);
     match.state.score = { player: snapshot.score.A, bot: snapshot.score.B };
-    match.state.server = snapshot.serverTeam === "A" ? "player" : "bot";
+    match.state.server = snapshot.server || null;
     match.state.over = snapshot.phase === "over";
     match.serve = { server: snapshot.server, box: snapshot.serveInfo?.box };
     match.serveTiming = {
@@ -445,19 +473,26 @@ export class Game {
     const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
     if (scoreKey !== this.lastScoreKey) {
       this.lastScoreKey = scoreKey;
-      this.hud.setScore(match.state.score, snapshot.server);
+      const localTeam = this.localFighterId === "player" || this.localFighterId === "A2" ? "A" : "B";
+      this.hud.setScore(match.state.score, snapshot.server, localTeam);
     }
     const serverNow = Date.now() + this.network.netState.serverOffset;
     const seconds = Math.max(0, Math.ceil((this.onlineStartAt - serverNow) / 1000));
+    const localTeam = this.localFighterId === "player" || this.localFighterId === "A2" ? "A" : "B";
     this.onlineStatus.textContent = seconds > 0
-      ? `Partida online · ${seconds} · voce: ${this.localFighterId}`
-      : `Partida online · voce: ${this.localFighterId} · ping: ${Math.round(this.network.netState.ping)} ms`;
+      ? `Partida online · ${seconds} · seu time: ${localTeam}`
+      : `Partida online · seu time: ${localTeam} · ping: ${Math.round(this.network.netState.ping)} ms`;
   }
 
   /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, partículas, slow motion. */
   handleEvents(events) {
     const pc = this.gameConfig.parry;
-    const who = (w) => (w === "player" ? "Ponto seu" : "Ponto do rival");
+    const localId = this.localFighterId || "player";
+    const localTeam = localId === "player" || localId === "A2" ? "A" : "B";
+    const teamOfFighter = (id) => id === "player" || id === "A2" || id === "A1" ? "A" : "B";
+    const isLocal = (id) => id === localId;
+    const isFriendly = (id) => teamOfFighter(id) === localTeam;
+    const who = (winner) => (isFriendly(winner) ? "Ponto seu time" : "Ponto do rival");
     for (const e of events) {
       switch (e.type) {
         case "start":
@@ -466,14 +501,14 @@ export class Game {
         case "serveReady":
           this.hud.setHint("");
           this.hud.flash(
-            e.server === "player" ? "Seu saque" : "Saque do rival",
+            isLocal(e.server) ? "Seu saque" : isFriendly(e.server) ? "Saque do parceiro" : "Saque do rival",
             "info",
             1100,
             e.attempt > 1 ? "2º saque" : "",
           );
           break;
         case "serveRing":
-          if (e.server === "player")
+          if (isLocal(e.server))
             this.hud.setHint(
               "<b>Saque:</b> clique quando o anel encostar no círculo dourado!",
             );
@@ -481,7 +516,7 @@ export class Game {
         case "serve": {
           this.hud.setHint("");
           this.orb.pulse(1);
-          this.characters[e.who].flashShield(
+          this.characters[e.who]?.flashShield(
             e.quality === "perfect" ? "perfect" : "normal",
           );
           const p = this.orb.position;
@@ -506,17 +541,17 @@ export class Game {
             this.cameraRig.shake(0.4, 0.3);
             this.hitStop = pc.hitStop;
             this.hud.flash(
-              e.who === "player"
+              isLocal(e.who)
                 ? "SAQUE PERFEITO!"
-                : "Saque perfeito do rival!",
-              e.who === "player" ? "perfect" : "bad",
+                : isFriendly(e.who) ? "Saque perfeito do seu time!" : "Saque perfeito do rival!",
+              isFriendly(e.who) ? "perfect" : "bad",
               1000,
             );
           } else if (e.quality === "bad") {
             this.cameraRig.shake(0.05, 0.12);
-            if (e.who === "player")
+            if (isFriendly(e.who))
               this.hud.flash(
-                e.auto ? "Tempo esgotado!" : "Saque fraco",
+                e.auto ? (isLocal(e.who) ? "Tempo esgotado!" : "Tempo esgotado no saque do parceiro") : "Saque fraco",
                 "bad",
                 900,
               );
@@ -526,7 +561,7 @@ export class Game {
           break;
         }
         case "hit": {
-          this.characters[e.who].flashShield(e.quality);
+          this.characters[e.who]?.flashShield(e.quality);
           this.orb.pulse(e.strong ? 1.6 : 1);
           this.impactWaves.spawn(
             e.x,
@@ -536,7 +571,7 @@ export class Game {
           if (e.strong) {
             this.cameraRig.shake(e.quality === "perfect" ? 0.55 : 0.38, 0.34);
             if (e.quality === "perfect") this.hitStop = pc.hitStop;
-            if (e.who === "player") {
+            if (isFriendly(e.who)) {
               this.hud.flash(
                 e.curve
                   ? "CORTADA FLAMEJANTE!"
@@ -548,7 +583,7 @@ export class Game {
                 e.passiveStacks ? `COMBUSTÃO x${e.passiveStacks}` : "",
               );
             }
-          } else if (e.curve && e.who === "player") {
+          } else if (e.curve && isFriendly(e.who)) {
             this.cameraRig.shake(0.42, 0.3);
             this.burst.emit(e.x, e.y, e.z, {
               count: 42,
@@ -568,10 +603,10 @@ export class Game {
             this.cameraRig.shake(0.38, 0.3);
             this.hitStop = pc.hitStop;
             this.hud.flash(
-              e.who === "player"
+              isFriendly(e.who)
                 ? "PARRY PERFEITO!"
                 : "Parry perfeito do rival!",
-              e.who === "player" ? "perfect" : "bad",
+              isFriendly(e.who) ? "perfect" : "bad",
               900,
               e.who === "player" && e.passiveStacks
                 ? `COMBUSTÃO x${e.passiveStacks}`
@@ -580,7 +615,7 @@ export class Game {
           } else {
             this.cameraRig.shake(0.1 + this.orb.speedRatio * 0.15, 0.2);
           }
-          if (e.who === "player") this.hud.setTiming(e.error, e.quality);
+          if (isLocal(e.who)) this.hud.setTiming(e.error, e.quality);
           break;
         }
         case "dash":
@@ -821,28 +856,28 @@ export class Game {
           if (e.kind === "doubleFault")
             this.hud.flash(
               "DUPLA FALTA!",
-              e.winner === "player" ? "good" : "bad",
+              isFriendly(e.winner) ? "good" : "bad",
               1500,
               who(e.winner),
             );
           else if (e.kind === "ace")
             this.hud.flash(
               "ACE!",
-              e.winner === "player" ? "perfect" : "bad",
+              isFriendly(e.winner) ? "perfect" : "bad",
               1500,
               who(e.winner),
             );
           else
             this.hud.flash(
               e.reason,
-              e.winner === "player" ? "good" : "bad",
+              isFriendly(e.winner) ? "good" : "bad",
               1500,
               who(e.winner),
             );
           this.cameraRig.shake(0.15, 0.25);
           break;
         case "matchOver":
-          this.hud.showEnd(e.winner === "player", e.score);
+          this.hud.showEnd(isFriendly(e.winner), e.score);
           break;
         default:
           break;
@@ -897,13 +932,19 @@ export class Game {
     }
     if (this.online) {
       const localId = this.localFighterId || this.network.fighterId;
-      if (localId && (match.fighters[localId]?.sign || 1) < 0) intent.moveZ *= -1;
+      if (localId && (match.fighters[localId]?.sign || 1) < 0) {
+        intent.moveX *= -1;
+        intent.moveZ *= -1;
+      }
       if (intent.press) this.characters[localId]?.flashShield("normal");
       this.network.sendInput(intent, dt);
       const snapshot = this.network.netState.sample();
       if (snapshot) this.applyOnlineSnapshot(snapshot);
       const countdown = Math.max(0, Math.ceil((this.onlineStartAt - (Date.now() + this.network.netState.serverOffset)) / 1000));
-      if (countdown > 0) this.onlineStatus.textContent = `Partida online · ${countdown} · voce: ${localId || "..."}`;
+      if (countdown > 0) {
+        const localTeam = localId === "player" || localId === "A2" ? "A" : "B";
+        this.onlineStatus.textContent = `Partida online · ${countdown} · seu time: ${localTeam}`;
+      }
       const queued = this.onlineEvents.splice(0);
       this.handleEvents(queued.filter((event) => event.type !== "matchOver"));
     } else {
@@ -914,12 +955,10 @@ export class Game {
     // --- visual
     const vdt = dt * timeScale;
     this.orb.update(vdt, match.ball);
-    this.characters.player.update(vdt, time, match.fighters.player);
-    this.characters.bot.update(vdt, time, match.fighters.bot);
-    if (this.characters.A2) {
-      this.characters.A2.update(vdt, time, match.fighters.A2);
-      this.characters.B2.update(vdt, time, match.fighters.B2);
-    }
+    this.characters.player?.update(vdt, time, match.fighters.player);
+    this.characters.bot?.update(vdt, time, match.fighters.bot);
+    this.characters.A2?.update(vdt, time, match.fighters.A2);
+    this.characters.B2?.update(vdt, time, match.fighters.B2);
     this.bounceMarks.update(vdt);
     this.dashTrailTimer -= vdt;
     const player = match.fighters[this.localFighterId || "player"] || match.fighters.player;
@@ -1005,7 +1044,8 @@ export class Game {
     const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
     if (scoreKey !== this.lastScoreKey) {
       this.lastScoreKey = scoreKey;
-      this.hud.setScore(match.state.score, match.state.server);
+      const localTeam = this.online && this.localFighterId !== "player" && this.localFighterId !== "A2" ? "B" : "A";
+      this.hud.setScore(match.state.score, match.state.server, localTeam);
     }
 
     this.court.update(time);
