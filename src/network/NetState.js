@@ -1,16 +1,20 @@
-const INTERPOLATION_DELAY_MS = 100;
-const MAX_BUFFER = 24;
+const INTERPOLATION_DELAY_MS = 55;
+const SNAPSHOT_INTERVAL_MS = 1000 / 30;
+const MAX_BUFFER = 8;
 
 /** Snapshot queue, remote interpolation and lightweight local movement prediction. */
 export class NetState {
   constructor({ interpolationDelay = INTERPOLATION_DELAY_MS } = {}) {
     this.delay = interpolationDelay;
+    this.adaptiveDelay = interpolationDelay > 0;
     this.snapshots = [];
     this.localFighterId = null;
     this.predicted = null;
     this.pending = [];
     this.correction = { x: 0, z: 0 };
     this.lastSampleAt = 0;
+    this.lastSnapshotArrival = 0;
+    this.snapshotJitter = 0;
     this.movement = { width: 12, length: 24, accel: 55, minZ: 1.2, swingMoveFactor: 0.5 };
     this.ping = 0;
     this.serverOffset = 0;
@@ -29,15 +33,28 @@ export class NetState {
 
   setLocalFighter(fighterId) {
     this.localFighterId = fighterId;
+    this.snapshots = [];
     this.predicted = null;
     this.pending = [];
     this.correction = { x: 0, z: 0 };
     this.lastSampleAt = 0;
+    this.lastSnapshotArrival = 0;
+    this.snapshotJitter = 0;
+    this.delay = INTERPOLATION_DELAY_MS;
   }
 
   push(snapshot) {
+    const latest = this.snapshots.at(-1);
+    if (latest && snapshot.serverTime <= latest.serverTime) return;
+    const arrival = Date.now();
+    if (this.lastSnapshotArrival) {
+      const delta = arrival - this.lastSnapshotArrival;
+      const deviation = Math.abs(delta - SNAPSHOT_INTERVAL_MS);
+      this.snapshotJitter += (deviation - this.snapshotJitter) * 0.15;
+      if (this.adaptiveDelay) this.delay = clamp(48 + this.snapshotJitter * 2 + this.ping * 0.08, 48, 100);
+    }
+    this.lastSnapshotArrival = arrival;
     this.snapshots.push(snapshot);
-    this.snapshots.sort((a, b) => a.serverTime - b.serverTime);
     if (this.snapshots.length > MAX_BUFFER) this.snapshots.shift();
     if (this.localFighterId) this.reconcile(snapshot);
   }
@@ -86,22 +103,39 @@ export class NetState {
     this.correction.z *= correctionDecay;
     const target = clientNow + this.serverOffset - this.delay;
     let before = this.snapshots[0], after = this.snapshots.at(-1);
-    for (let i = 1; i < this.snapshots.length; i += 1) {
-      if (this.snapshots[i].serverTime >= target) {
+    for (let i = this.snapshots.length - 1; i > 0; i -= 1) {
+      if (this.snapshots[i - 1].serverTime <= target) {
         before = this.snapshots[i - 1]; after = this.snapshots[i]; break;
       }
-      before = this.snapshots[i];
     }
     const span = Math.max(1, after.serverTime - before.serverTime);
     const alpha = Math.max(0, Math.min(1, (target - before.serverTime) / span));
-    const result = structuredClone(alpha >= 1 ? after : before);
+    const base = alpha >= 1 ? after : before;
+    const result = {
+      ...base,
+      orb: base.orb ? { ...base.orb } : base.orb,
+      players: base.players.map((fighter) => ({ ...fighter })),
+    };
     if (before !== after && alpha < 1) {
       result.orb = interpolateObject(before.orb, after.orb, alpha);
       const remote = new Map(after.players.map((p) => [p.fighterId, p]));
       result.players = before.players.map((p) => {
         const q = remote.get(p.fighterId);
-        return q ? { ...p, x: lerp(p.x, q.x, alpha), z: lerp(p.z, q.z, alpha), yaw: angleLerp(p.yaw, q.yaw, alpha) } : p;
+        return q ? {
+          ...p,
+          x: lerp(p.x, q.x, alpha), z: lerp(p.z, q.z, alpha),
+          vx: lerp(p.vx || 0, q.vx || 0, alpha), vz: lerp(p.vz || 0, q.vz || 0, alpha),
+          yaw: angleLerp(p.yaw, q.yaw, alpha),
+          animT: p.animT >= 0 && q.animT >= 0 ? lerp(p.animT, q.animT, alpha) : q.animT,
+        } : { ...p };
       });
+    } else if (target > after.serverTime) {
+      const ahead = Math.min(0.04, (target - after.serverTime) / 1000);
+      result.players = result.players.map((fighter) => ({
+        ...fighter,
+        x: fighter.x + (fighter.vx || 0) * ahead,
+        z: fighter.z + (fighter.vz || 0) * ahead,
+      }));
     }
     if (this.localFighterId && this.predicted) {
       const local = result.players.find((p) => p.fighterId === this.localFighterId);

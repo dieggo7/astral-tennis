@@ -131,3 +131,9 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Reconcilia snapshots reexecutando apenas inputs sem confirmacao e suaviza a correcao visual para evitar travamentos por saltos de posicao.
 - `networktest` verifica que os sockets do host e convidado movem apenas seus respectivos lutadores e inclui uma verificacao de predicao/reconciliacao.
 - Verificado: `npm run networktest`, `npm run simtest`, `npm run build`.
+
+## Rodada 10 - reduzir latencia visual online
+- Snapshots de estado enviados a 30 Hz em vez de 20 Hz.
+- Buffer de interpolacao reduzido para 55 ms e ajustado automaticamente conforme jitter de chegada e ping; extrapolacao curta mantem lutadores em movimento entre snapshots.
+- Removidas ordenacao e clonagem profunda em cada frame; a amostragem agora clona apenas os objetos visuais necessarios e interpola velocidade/animacao.
+- Verificado: `npm run networktest`, `npm run simtest`, `npm run build` e `git diff --check`.

@@ -416,7 +416,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
       withRandom(room, () => room.match.update(FIXED_DT, { intents }));
       for (const event of room.match.consumeEvents()) io.to(room.code).emit("event", { ...event, serverTime: Date.now() });
       if (room.match.phase === "over") { finishMatch(room, room.match.state.winner === PLAYER ? "A" : "B"); continue; }
-      if (room.tick % 3 === 0) io.to(room.code).emit("snapshot", makeSnapshot(room));
+      if (room.tick % 2 === 0) io.to(room.code).emit("snapshot", makeSnapshot(room));
     }
   }, 1000 / 60);
 
