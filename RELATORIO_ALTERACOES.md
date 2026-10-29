@@ -125,3 +125,9 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Placar, indicador de saque, avisos de saque e mensagens de ponto agora usam o time/fighter local para separar jogador, parceiro e rival.
 - O HUD deixa de exibir os IDs internos `player`/`bot` e mostra o time local. Ao sair, perspectiva e personagens locais sao restaurados.
 - Verificado: `npm run build`, `npm run simtest`, `npm run networktest` e `git diff --check`.
+
+## Rodada 9 - movimento online
+- O preditor local agora usa a aceleracao, velocidade, limites de quadra e fator de movimento durante golpe configurados pela simulacao.
+- Reconcilia snapshots reexecutando apenas inputs sem confirmacao e suaviza a correcao visual para evitar travamentos por saltos de posicao.
+- `networktest` verifica que os sockets do host e convidado movem apenas seus respectivos lutadores e inclui uma verificacao de predicao/reconciliacao.
+- Verificado: `npm run networktest`, `npm run simtest`, `npm run build`.

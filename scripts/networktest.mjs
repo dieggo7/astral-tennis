@@ -1,6 +1,28 @@
 import assert from "node:assert/strict";
 import { io as connect } from "socket.io-client";
 import { createGameServer } from "../server/index.js";
+import { NetState } from "../src/network/NetState.js";
+
+const predictedState = new NetState({ interpolationDelay: 0 });
+predictedState.setMovementConfig({
+  court: { width: 12, length: 24 },
+  player: { accel: 55, minZ: 1.2 },
+  parry: { swingMoveFactor: 0.5 },
+});
+predictedState.setLocalFighter("bot");
+const predictionSnapshot = (serverTime, x, vx, ack) => ({
+  serverTime,
+  ack: { bot: ack },
+  orb: { x: 0, y: 1, z: 0, vx: 0, vy: 0, vz: 0, speed: 0 },
+  players: [{ fighterId: "bot", team: "B", x, z: -5, vx, vz: 0, yaw: 0, moveSpeed: 9.5, swinging: false }],
+});
+predictedState.push(predictionSnapshot(1000, 0, 0, -1));
+predictedState.predict({ moveX: 1 }, 1, 1 / 60);
+const predictedX = predictedState.sample(1016).players[0].x;
+assert.ok(predictedX > 0, "local prediction accelerates from rest");
+predictedState.push(predictionSnapshot(1050, 0.03, 1.8, 1));
+const reconciledX = predictedState.sample(1051).players[0].x;
+assert.ok(Math.abs(reconciledX - predictedX) < 0.15, "snapshot reconciliation corrects movement smoothly");
 
 const app = createGameServer({ port: 0, clientOrigin: "*", logger: { log() {}, error: console.error } });
 const address = await app.listen();
@@ -84,6 +106,16 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   assert.ok(liveRoom.match.fighters.bot.x > guestX + 0.1, "the second human controls the rival slot instead of leaving it to the bot");
+  guest.emit("input", { seq: 13, moveX: 0, moveZ: 0, aimX: 0, aimZ: 6 });
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const playerX = liveRoom.match.fighters.player.x;
+  const botX = liveRoom.match.fighters.bot.x;
+  for (let seq = 1; seq <= 12; seq += 1) {
+    host.emit("input", { seq, moveX: 1, moveZ: 0, aimX: 0, aimZ: -6 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.ok(liveRoom.match.fighters.player.x > playerX + 0.1, "the host controls the player slot");
+  assert.ok(Math.abs(liveRoom.match.fighters.bot.x - botX) < 0.8, "host movement does not control the guest slot");
   const served = await serveEvent;
   assert.ok(["player", "bot"].includes(served.who));
   assert.equal(app.rooms.get(created.code).status, "playing", "network simulation remains alive through the first serve");
@@ -115,7 +147,7 @@ try {
   assert.equal((await request(a, "room:end")).ok, true);
   assert.equal((await ended).reason, "host-ended");
 
-  console.log("networktest: salas, host, snapshots, controle do segundo jogador, primeiro saque, ponto, saque do rival, reconexao 1v1 e vagas/partida 2v2 passaram");
+  console.log("networktest: salas, host, snapshots, controle independente dos dois jogadores, predicao/reconciliacao, primeiro saque, ponto, saque do rival, reconexao 1v1 e vagas/partida 2v2 passaram");
 } finally {
   for (const socket of clients) socket.disconnect();
   await app.close();

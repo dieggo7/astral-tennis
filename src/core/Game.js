@@ -182,6 +182,7 @@ export class Game {
       location.assign(url.href);
     };
     this.network = new NetworkClient();
+    this.network.netState.setMovementConfig(this.gameConfig);
     this.online = false;
     this.onlineEvents = [];
     this.onlineStartAt = 0;
