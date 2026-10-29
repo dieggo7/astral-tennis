@@ -88,6 +88,80 @@ export class BounceMarks {
   }
 }
 
+/** Ondas de choque rápidas para impactos de habilidade; sem pré-marcar o local de queda. */
+export class ImpactWaves {
+  constructor(count = 8) {
+    this.group = new THREE.Group();
+    this.waves = Array.from({ length: count }, () => {
+      const mat = addMat(new THREE.Color(2, 0.8, 0.2), 0);
+      const mesh = new THREE.Mesh(flatRing(0.82, 1, 64), mat);
+      mesh.position.y = 0.09;
+      mesh.renderOrder = 5;
+      this.group.add(mesh);
+      return { mesh, mat, age: 99, color: new THREE.Color() };
+    });
+    this.next = 0;
+  }
+
+  spawn(x, z, color = '#ff9b35', startAge = 0) {
+    const wave = this.waves[this.next];
+    this.next = (this.next + 1) % this.waves.length;
+    wave.age = startAge;
+    wave.mesh.position.set(x, 0.09, z);
+    wave.color.set(color);
+    wave.mat.color.copy(wave.color);
+  }
+
+  update(dt) {
+    for (const wave of this.waves) {
+      if (wave.age > 0.8) { wave.mat.opacity = 0; continue; }
+      wave.age += dt;
+      const t = Math.min(1, wave.age / 0.8);
+      wave.mesh.scale.setScalar(0.7 + t * 5.5);
+      wave.mat.opacity = (1 - t) * 0.9;
+    }
+  }
+}
+
+/** Efeitos persistentes de gelo e vento controlados pelo estado da partida. */
+export class AbilityFieldVisuals {
+  constructor(court) {
+    this.group = new THREE.Group();
+    const wallMat = new THREE.MeshBasicMaterial({ color: '#8beaff', transparent: true, opacity: 0.65, emissive: '#2bbbe8', emissiveIntensity: 0.8 });
+    this.wall = new THREE.Group();
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(court.width * 0.99, 5.5, 0.18), wallMat);
+    panel.position.y = 2.8;
+    this.wall.add(panel);
+    for (let i = 0; i < 7; i += 1) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.8, 5), wallMat);
+      spike.position.set(-court.width * 0.46 + i * court.width * 0.153, 5.75, 0);
+      this.wall.add(spike);
+    }
+    this.wall.position.set(0, 0, 6);
+    this.group.add(this.wall);
+
+    const iceMat = new THREE.MeshBasicMaterial({ color: '#8beaff', transparent: true, opacity: 0.17, side: THREE.DoubleSide, depthWrite: false });
+    this.ice = new THREE.Mesh(new THREE.PlaneGeometry(court.width, court.length / 2), iceMat);
+    this.ice.rotation.x = -Math.PI / 2;
+    this.ice.position.set(0, 0.075, -court.length / 4);
+    this.group.add(this.ice);
+
+    const tornadoMat = new THREE.MeshBasicMaterial({ color: '#86fff1', transparent: true, opacity: 0.62, wireframe: true });
+    this.tornado = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 1.3, 4.8, 18, 6, true), tornadoMat);
+    this.tornado.position.y = 2.4;
+    this.group.add(this.tornado);
+  }
+
+  update(effects, time) {
+    this.wall.visible = effects.frostWall > 0;
+    this.ice.visible = effects.iceRink > 0;
+    this.tornado.visible = !!effects.tornado;
+    this.tornado.rotation.y = time * 8;
+    this.tornado.scale.setScalar(effects.tornado ? 1 + Math.sin(time * 18) * 0.08 : 1);
+    this.ice.material.opacity = effects.iceRink > 0 ? 0.15 + Math.sin(time * 7) * 0.035 : 0;
+  }
+}
+
 export class ServeBox {
   constructor() {
     this.group = new THREE.Group();

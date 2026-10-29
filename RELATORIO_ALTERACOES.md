@@ -64,9 +64,21 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 
 ## Rodada 3
 - A faixa de timing agora vai de 0,45 a 1,85 s; saques consecutivos evitam repetir timings com diferenca menor que 0,22 s.
-- **Cortada:** botao direito inicia o mesmo golpe/Parry, mas a bola sai com 2x a velocidade atual. Fora do timing perfeito ha 70% de chance de erro para fora pela lateral; no perfeito, a mira varia em ate 20% das dimensoes do alvo. O saque continua no botao esquerdo.
+- **Cortada:** botao direito inicia o mesmo golpe/Parry, mas a bola sai com 2,25x a velocidade atual. Fora do timing perfeito ha 70% de chance de erro para fora pela lateral; no perfeito, a mira varia em ate 20% das dimensoes do alvo. O saque continua no botao esquerdo.
+- **Habilidades de Ignis:** Parrys perfeitos consecutivos acumulam bônus de velocidade; `E` ativa a Investida Flamejante (recarga de 6 s), e um Parry na janela logo após o dash cria uma curva forte. `Q` ativa o Meteoro (recarga de 60 s): a bola sobe e cai no alvo da mira sem indicação no chão; o bot só começa a reagir na queda e precisa alcançar o centro para devolver.
 - **Timing do saque:** o instante perfeito e sorteado em cada saque dentro da faixa de 0,45 a 1,85 s depois do anel aparecer. O anel acompanha o instante sorteado; saques consecutivos evitam timings separados por menos de 0,22 s. O timeout de 3 s continua respeitado.
 - **Linhas menos brilhantes:** as linhas de limite saíram de brilho 1,9 para 0,8 (abaixo do limiar do bloom, então não "estouram"), ficaram mais finas (0,26 para 0,20) e o halo caiu de 0,16 para 0,05. As linhas internas (saque, centro, rede) têm brilho próprio e bem mais baixo (0,35). A caixa de saque destacada também ficou mais discreta. Tudo ajustável em `TUNING` (LINE_*).
+
+## Rodada 4
+- O seletor agora oferece Ignis, Glacia, Zephyr e Volta, cada um com modelo procedural próprio, passiva, habilidade, ultimate e recargas descritas. A seleção troca o modelo e os atributos do jogador.
+- Glacia: janela de Parry perfeito maior; Muralha de Cristal reduz pela metade a velocidade de um tiro rápido que a atravessa; Pista de Patinação reduz a aceleração do rival na metade dele por 10 s.
+- Zephyr: maior velocidade de movimento; Rajada de Vento empurra lateralmente a bola no ar; Olho do Furacão prende a bola na rede por 2 s e a dispara para o lado rival em alta velocidade e ângulo aleatório.
+- Volta: as rebatidas ziguezagueiam; Curto-Circuito suspende a bola por 0,5 s e a solta; Sobrecarga dispara em linha reta na velocidade máxima e interrompe a reação do rival por um breve clarão.
+- A HUD mostra os nomes e cooldowns da habilidade e ultimate do personagem escolhido. Foram adicionados efeitos visuais para gelo, vento e eletricidade.
+- Ajustes de balanceamento: habilidade E de todos os personagens com recarga de 20 s; ultimates com recarga de 90 s.
+- Olho do Furacão agora dispara para uma posição aleatória dentro das linhas da quadra rival.
+- Muralha de Cristal ocupa toda a largura da quadra, no meio do lado de Glacia, e rebate a primeira bola que a atravessa durante a duração.
+- Combustão recebeu bônus de velocidade maior por cada Parry perfeito consecutivo.
 
 ## Arquivos
 **Novos:** src/sim/Aim.js, src/effects/Burst.js. (Rodada 1: src/sim/{BallPhysics,Rules,MatchState,Parry,Match}.js, src/input/*, src/characters/*, src/ui/Hud.js, src/arena/CourtMarkers.js, scripts/simtest.mjs.)

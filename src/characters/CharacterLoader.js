@@ -14,7 +14,7 @@ function findClip(clips, hint) {
  * mago procedural. Contrato de animação: idle, run, swing, win, lose.
  */
 export async function loadCharacter(def) {
-  if (def.model) {
+  if (def.model && !def.procedural) {
     try {
       // O servidor do Vite responde 200 com HTML para arquivos inexistentes; checamos o tipo.
       const head = await fetch(def.model, { method: 'HEAD' });

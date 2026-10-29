@@ -40,6 +40,64 @@ export function buildProceduralWizard(def) {
   const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), skinMat);
   nose.position.set(0, 1.8, 0.25);
   body.add(robe, chest, belt, hem, head, brim, hat, hatBand, nose);
+
+  // Silhueta e acessórios próprios para distinguir os quatro modelos mesmo sem GLB.
+  const details = new THREE.Group();
+  body.add(details);
+  const detailMat = new THREE.MeshStandardMaterial({
+    color: def.accent, roughness: 0.25, metalness: 0.35,
+    emissive: def.accent, emissiveIntensity: 0.8,
+  });
+  if (def.id === 'ignis') {
+    [-0.2, 0, 0.2].forEach((x, i) => {
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.42 + (i === 1 ? 0.12 : 0), 8), detailMat);
+      flame.position.set(x, 2.72, -0.2);
+      flame.rotation.z = x * -1.5;
+      details.add(flame);
+    });
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), detailMat);
+    shoulder.position.set(-0.38, 1.47, -0.03);
+    details.add(shoulder);
+  } else if (def.id === 'glacia') {
+    [-0.24, -0.08, 0.08, 0.24].forEach((x, i) => {
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.17 + (i % 2) * 0.05), detailMat);
+      crystal.position.set(x, 2.12 + (i % 2) * 0.08, 0.01);
+      crystal.scale.set(0.8, 1.5, 0.8);
+      details.add(crystal);
+    });
+    [-1, 1].forEach((side) => {
+      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.2), detailMat);
+      shard.position.set(side * 0.47, 1.48, -0.02);
+      shard.scale.set(0.7, 1.4, 0.7);
+      details.add(shard);
+    });
+  } else if (def.id === 'zephyr') {
+    const sash = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.055, 8, 32), detailMat);
+    sash.position.set(0, 0.82, 0);
+    sash.rotation.x = Math.PI / 2;
+    sash.rotation.z = 0.24;
+    details.add(sash);
+    [-1, 1].forEach((side) => {
+      const feather = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.72, 8), detailMat);
+      feather.position.set(side * 0.4, 1.46, -0.25);
+      feather.rotation.z = side * -0.75;
+      feather.rotation.x = -0.5;
+      details.add(feather);
+    });
+  } else if (def.id === 'volta') {
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.055, 8, 28), detailMat);
+    coil.position.set(0, 1.46, 0);
+    coil.rotation.x = Math.PI / 2;
+    details.add(coil);
+    [-0.22, 0.22].forEach((x) => {
+      const node = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), detailMat);
+      node.position.set(x, 2.08, -0.05);
+      details.add(node);
+    });
+    const aerial = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 6), detailMat);
+    aerial.position.set(0, 2.85, -0.05);
+    details.add(aerial);
+  }
   body.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
   // Braço + varinha (pivô no ombro direito)

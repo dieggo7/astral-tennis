@@ -39,6 +39,11 @@ export class Match {
     this.serveAttempt = 0;
     this.serve = null;           // { server, sideSign, box, attempt }
     this.botServe = null;        // { at, quality } sorteado no início do saque do rival
+    this.meteor = null;
+    this.characterId = 'ignis';
+    this.abilityCooldown = 0;
+    this.ultimateCooldown = 0;
+    this.effects = { frostWall: 0, iceRink: 0, tornado: null, ballStop: null, overload: 0 };
     this.serveTiming = this.rollServeTiming();
     this.intent = { moveX: 0, moveZ: 0, aimX: 0, aimZ: -6 };
     this.prepareServe();
@@ -56,6 +61,18 @@ export class Match {
       buffer: 0,
       bufferType: 'normal',
       swingType: 'normal',
+      dashBuffer: 0,
+      meteorBuffer: 0,
+      dashCooldown: 0,
+      dashTimer: 0,
+      dashDirX: 0,
+      dashDirZ: 0,
+      dashRemaining: 0,
+      flameWindow: 0,
+      perfectStreak: 0,
+      meteorCooldown: 0,
+      characterId: id === PLAYER ? 'ignis' : 'glacia',
+      moveSpeed: id === PLAYER ? this.cfg.player.speed : this.cfg.bot.speed,
       animT: -1,                     // tempo desde o início do golpe (-1 = sem golpe)
       animDur: this.cfg.parry.duration,
       aimX: 0, aimZ: -sign * 6,
@@ -98,6 +115,7 @@ export class Match {
       f.x = h[0]; f.z = h[1]; f.vx = f.vz = 0;
       f.yaw = f.sign > 0 ? Math.PI : 0;
       f.parry.reset(); f.buffer = 0; f.animT = -1; f.mood = 'idle';
+      f.dashBuffer = 0; f.meteorBuffer = 0; f.dashTimer = 0; f.dashRemaining = 0; f.flameWindow = 0;
       f.aimX = 0; f.aimZ = -f.sign * 6;
     });
   }
@@ -106,6 +124,14 @@ export class Match {
   start() {
     this.state.reset(PLAYER);
     this.bot.reset();
+    const player = this.fighters[PLAYER];
+    player.dashCooldown = 0;
+    player.meteorCooldown = 0;
+    player.perfectStreak = 0;
+    this.abilityCooldown = 0;
+    this.ultimateCooldown = 0;
+    this.effects = { frostWall: 0, iceRink: 0, tornado: null, ballStop: null, overload: 0 };
+    this.meteor = null;
     this.prepareServe();
     this.resetFighters();
     this.beginServe(false);
@@ -179,6 +205,36 @@ export class Match {
     };
   }
 
+  get abilityInfo() {
+    const f = this.fighters[PLAYER];
+    const passiveStatus = this.characterId === 'ignis' ? `Combustão x${f.perfectStreak}`
+      : this.characterId === 'glacia' ? 'Pés Frios · Parry ampliado'
+        : this.characterId === 'zephyr' ? 'Pés de Vento · Velocidade máxima'
+          : 'Fio Desencapado · Zigue-zague ativo';
+    return {
+      perfectStreak: f.perfectStreak,
+      abilityCooldown: this.abilityCooldown,
+      ultimateCooldown: this.ultimateCooldown,
+      flameWindow: f.flameWindow,
+      passiveStatus,
+    };
+  }
+
+  setPlayerCharacter(id) {
+    if (!this.cfg.characters[id]) return;
+    this.characterId = id;
+    const player = this.fighters[PLAYER];
+    player.characterId = id;
+    player.moveSpeed = this.cfg.characters[id].speed;
+    player.parry.cfg = { ...this.cfg.parry, perfectWindow: this.cfg.characters[id].perfectWindow };
+    player.parry.reset();
+    player.perfectStreak = 0;
+    this.abilityCooldown = 0;
+    this.ultimateCooldown = 0;
+    this.effects = { frostWall: 0, iceRink: 0, tornado: null, ballStop: null, overload: 0 };
+    this.meteor = null;
+  }
+
   // ---------------------------------------------------------------- atualização
   /** dt variável do frame; intent do jogador = { moveX, moveZ, press, aimX, aimZ }. */
   update(dt, intent) {
@@ -195,6 +251,8 @@ export class Match {
       p.buffer = this.cfg.parry.bufferTime;
       p.bufferType = 'strong';
     }
+    if (intent.dashPress) p.dashBuffer = 0.16;
+    if (intent.ultimatePress) p.meteorBuffer = 0.16;
 
     this.acc += dt;
     while (this.acc >= STEP) {
@@ -209,6 +267,10 @@ export class Match {
     const cfg = this.cfg;
     const player = this.fighters[PLAYER];
     const bot = this.fighters[BOT];
+    this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
+    this.ultimateCooldown = Math.max(0, this.ultimateCooldown - dt);
+    for (const key of ['frostWall', 'iceRink', 'overload']) this.effects[key] = Math.max(0, this.effects[key] - dt);
+    player.flameWindow = Math.max(0, player.flameWindow - dt);
 
     // --- intents
     const walkingHome = this.phase === 'point';
@@ -222,9 +284,27 @@ export class Match {
       pm = this.homeIntent(player);
       bi = { ...this.homeIntent(bot), press: false, aimX: bot.aimX, aimZ: bot.aimZ };
     }
+    if (this.effects.overload > 0) bi = { moveX: 0, moveZ: 0, press: false, aimX: bot.aimX, aimZ: bot.aimZ };
 
-    this.moveFighter(player, pm.moveX, pm.moveZ, dt, cfg.player.speed);
-    this.moveFighter(bot, bi.moveX, bi.moveZ, dt, cfg.bot.speed);
+    if (player.dashBuffer > 0) {
+      if (this.phase === 'rally' && this.abilityCooldown <= 0) {
+        this.activateAbility(player);
+        player.dashBuffer = 0;
+      } else player.dashBuffer = Math.max(0, player.dashBuffer - dt);
+    }
+    if (player.meteorBuffer > 0) {
+      if (this.phase === 'rally' && this.ultimateCooldown <= 0) {
+        this.activateUltimate(player);
+        player.meteorBuffer = 0;
+      } else player.meteorBuffer = Math.max(0, player.meteorBuffer - dt);
+    }
+    if (this.meteor?.falling && this.phase === 'rally') {
+      this.bot.moveToward(bi, bot, this.meteor.x, this.meteor.z);
+    }
+
+    this.moveFighter(player, pm.moveX, pm.moveZ, dt, player.moveSpeed);
+    const botIce = this.effects.iceRink > 0 && bot.z < 0;
+    this.moveFighter(bot, bi.moveX, bi.moveZ, dt, cfg.bot.speed, botIce ? 0.24 : 1);
     bot.aimX = bi.aimX; bot.aimZ = bi.aimZ;
     this.faceTargets(player, bot, dt);
 
@@ -301,6 +381,129 @@ export class Match {
     }
   }
 
+  activateFlameDash(f) {
+    const d = this.cfg.ignis.dash;
+    const dx = this.ball.x - f.x, dz = this.ball.z - f.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 0.02) return;
+    f.dashDirX = dx / distance;
+    f.dashDirZ = dz / distance;
+    f.dashRemaining = Math.min(distance, d.maxDistance);
+    f.dashTimer = Math.min(d.duration, f.dashRemaining / d.speed);
+    this.abilityCooldown = d.cooldown;
+    f.flameWindow = 0;
+    this.events.push({ type: 'dash', who: f.id, x: f.x, z: f.z });
+  }
+
+  activateMeteor(f) {
+    const cfg = this.cfg.ignis.meteor;
+    const b = this.ball;
+    const x = clamp(f.aimX, -this.halfW + 0.35, this.halfW - 0.35);
+    const z = clamp(Math.min(f.aimZ, -0.8), -this.halfL + 0.5, -0.8);
+    this.meteor = { x, z, radius: cfg.impactRadius, falling: false };
+    this.ultimateCooldown = cfg.cooldown;
+    f.perfectStreak = 0;
+    f.flameWindow = 0;
+    b.held = false;
+    b.vx = 0;
+    b.vz = 0;
+    b.vy = cfg.launchSpeed;
+    b.curveAccelX = 0;
+    b.curveTime = 0;
+    this.rules.onHit(f.id, false);
+    this.events.push({ type: 'meteor', who: f.id, x, z, radius: cfg.impactRadius });
+  }
+
+  activateAbility(f) {
+    const id = this.characterId;
+    const cc = this.cfg.characters[id];
+    this.abilityCooldown = cc.abilityCooldown;
+    if (id === 'ignis') { this.abilityCooldown = 0; this.activateFlameDash(f); return; }
+    if (id === 'glacia') {
+      this.effects.frostWall = this.cfg.glacia.wallDuration;
+      this.effects.frostWallUsed = false;
+      this.events.push({ type: 'frostWall', duration: this.effects.frostWall });
+    } else if (id === 'zephyr') {
+      const b = this.ball;
+      if (b.held || b.fallen || this.effects.tornado) { this.abilityCooldown = 0; return; }
+      const direction = Math.sign(f.aimX - b.x || (Math.random() < 0.5 ? -1 : 1));
+      b.vx += direction * this.cfg.zephyr.gustImpulse;
+      this.events.push({ type: 'gust', x: b.x, y: b.y, z: b.z, direction });
+    } else if (id === 'volta') {
+      const b = this.ball;
+      if (b.held || b.fallen || this.effects.ballStop || this.effects.tornado) { this.abilityCooldown = 0; return; }
+      this.effects.ballStop = { timer: this.cfg.volta.stopDuration, vx: b.vx, vy: b.vy, vz: b.vz };
+      b.vx = b.vy = b.vz = 0;
+      this.events.push({ type: 'shortCircuit', x: b.x, y: b.y, z: b.z });
+    }
+  }
+
+  activateUltimate(f) {
+    const id = this.characterId;
+    this.ultimateCooldown = this.cfg.characters[id].ultimateCooldown;
+    if (id === 'ignis') { this.ultimateCooldown = 0; this.activateMeteor(f); return; }
+    if (id === 'glacia') {
+      this.effects.iceRink = this.cfg.glacia.iceDuration;
+      this.events.push({ type: 'iceRink', duration: this.effects.iceRink });
+    } else if (id === 'zephyr') {
+      const b = this.ball;
+      if (b.held || b.fallen) { this.ultimateCooldown = 0; return; }
+      this.effects.tornado = { timer: this.cfg.zephyr.tornadoDuration, x: 0, y: Math.max(2, b.y), z: 0 };
+      b.x = 0; b.y = this.effects.tornado.y; b.z = 0; b.vx = b.vy = b.vz = 0;
+      this.events.push({ type: 'tornado', x: 0, y: b.y, z: 0 });
+    } else if (id === 'volta') {
+      const b = this.ball;
+      if (b.held || b.fallen) { this.ultimateCooldown = 0; return; }
+      this.effects.overload = 0.42;
+      b.curveAccelX = 0; b.curveTime = 0; b.vy = 0;
+      b.zigzagTime = 0;
+      const side = Math.sign(b.z) || 1;
+      b.vx = 0; b.vz = -side * this.cfg.ball.maxSpeed;
+      b.speed = this.cfg.ball.maxSpeed;
+      this.rules.onHit(PLAYER, false);
+      this.events.push({ type: 'overload', x: b.x, y: b.y, z: b.z });
+    }
+  }
+
+  stepMeteor(dt) {
+    const m = this.meteor;
+    const b = this.ball;
+    if (!m || b.held) return;
+    if (!m.falling) {
+      b.vy -= this.cfg.ball.gravity * dt;
+      b.y += b.vy * dt;
+      if (b.vy <= 0) {
+        b.x = m.x;
+        b.z = m.z;
+        b.vy = 0;
+        m.falling = true;
+        this.events.push({ type: 'meteorFall', x: m.x, y: b.y, z: m.z, radius: m.radius });
+      }
+      return;
+    }
+
+    b.vy -= this.cfg.ignis.meteor.fallGravity * dt;
+    b.y += b.vy * dt;
+    if (b.y > b.r) return;
+
+    b.y = b.r;
+    const bot = this.fighters[BOT];
+    const centered = Math.hypot(bot.x - m.x, bot.z - m.z) <= this.cfg.ignis.meteor.centerTolerance;
+    this.events.push({ type: 'meteorImpact', x: m.x, z: m.z, returned: centered });
+    this.meteor = null;
+    if (!centered) {
+      this.endPoint(this.rules.verdict(PLAYER, 'Meteoro!', 'meteor', m.x, m.z));
+      return;
+    }
+
+    bot.aimX = this.fighters[PLAYER].x;
+    bot.aimZ = this.fighters[PLAYER].z;
+    const info = this.shoot(bot, bot.aimX, bot.aimZ, {
+      quality: 'normal', timingFactor: 0.15, devMult: this.cfg.bot.aimDeviationMult,
+    });
+    this.events.push({ type: 'meteorReturn', who: BOT, x: m.x, z: m.z, ...info });
+  }
+
   homeIntent(f) {
     const h = this.homeFor(f.id);
     const dx = h[0] - f.x, dz = h[1] - f.z;
@@ -310,15 +513,37 @@ export class Match {
     return { moveX: (dx / d) * k, moveZ: (dz / d) * k };
   }
 
-  moveFighter(f, mx, mz, dt, speed) {
+  moveFighter(f, mx, mz, dt, speed, traction = 1) {
+    if (f.id === PLAYER && f.dashTimer > 0) {
+      const dash = this.cfg.ignis.dash;
+      const travel = Math.min(dash.speed * dt, f.dashRemaining);
+      f.x += f.dashDirX * travel;
+      f.z += f.dashDirZ * travel;
+      f.dashRemaining -= travel;
+      f.dashTimer = Math.max(0, f.dashTimer - dt);
+      f.vx = f.dashDirX * dash.speed;
+      f.vz = f.dashDirZ * dash.speed;
+      this.clampFighterToCourt(f);
+      if (f.dashTimer === 0 || f.dashRemaining <= 0.001) {
+        f.dashTimer = 0;
+        f.dashRemaining = 0;
+        f.flameWindow = dash.curveWindow;
+        this.events.push({ type: 'dashReady', who: f.id, x: f.x, z: f.z });
+      }
+      return;
+    }
     const len = Math.hypot(mx, mz);
     if (len > 1) { mx /= len; mz /= len; }
     const k = f.parry.swinging ? this.cfg.parry.swingMoveFactor : 1;
-    const a = this.cfg.player.accel * dt;
+    const a = this.cfg.player.accel * dt * traction;
     f.vx += clamp(mx * speed * k - f.vx, -a, a);
     f.vz += clamp(mz * speed * k - f.vz, -a, a);
     f.x += f.vx * dt;
     f.z += f.vz * dt;
+    this.clampFighterToCourt(f);
+  }
+
+  clampFighterToCourt(f) {
     const maxX = this.halfW - 0.3;
     const minZ = this.cfg.player.minZ, maxZ = this.halfL - 0.3;
     if (f.x > maxX || f.x < -maxX) { f.x = clamp(f.x, -maxX, maxX); f.vx = 0; }
@@ -389,16 +614,18 @@ export class Match {
   shoot(f, aimX, aimZ, opt) {
     const {
       isServe = false, speedMult = 1, timingFactor: tf = 0, region, devMult = 1,
-      quality = 'normal', strong = false,
+      quality = 'normal', strong = false, passiveBonus = 0, curve = false,
     } = opt;
     const b = this.ball, bc = this.cfg.ball, A = this.cfg.aim;
+    b.zigzagTime = 0;
     const r = bc.radius, g = bc.gravity;
 
     if (!isServe) {
-      if (strong) b.speed *= this.cfg.smash.speedMultiplier;
-      else b.speed = quality === 'perfect'
-        ? Math.min(b.speed * bc.perfectMultiplier, bc.maxSpeed)
-        : Math.min(b.speed * bc.hitMultiplier, bc.maxSpeed);
+      if (strong) {
+        b.speed = b.speed * this.cfg.smash.speedMultiplier + passiveBonus;
+      } else if (quality === 'perfect') {
+        b.speed = Math.min(b.speed * bc.perfectMultiplier, bc.maxSpeed) + passiveBonus;
+      } else b.speed = Math.min(b.speed * bc.hitMultiplier, bc.maxSpeed);
     }
 
     // --- desvio de mira (ângulo + profundidade)
@@ -432,7 +659,12 @@ export class Match {
     const need = (N - y0 * (1 - fr) - fr * r) * 1.15;
     if (need > 0) T = Math.max(T, Math.min(Math.sqrt((2 * need) / (g * fr * (1 - fr))), 2.4));
 
-    b.vx = dx / T;
+    b.curveTime = curve ? Math.min(this.cfg.ignis.dash.curveDuration, T) : 0;
+    b.curveAccelX = curve
+      ? Math.sign(aimX - b.x || aimX - f.x || 1) * this.cfg.ignis.dash.curveAcceleration
+      : 0;
+    const curveExtraX = b.curveAccelX * (b.curveTime * T - 0.5 * b.curveTime * b.curveTime);
+    b.vx = dx / T - curveExtraX / T;
     b.vz = dz / T;
     b.vy = (r - y0 + 0.5 * g * T * T) / T;
     b.y = y0;
@@ -443,9 +675,53 @@ export class Match {
   }
 
   stepBall(dt) {
+    if (this.meteor) {
+      this.stepMeteor(dt);
+      return;
+    }
     const b = this.ball;
+    if (this.effects.tornado) {
+      const tornado = this.effects.tornado;
+      tornado.timer -= dt;
+      b.x = Math.sin((this.cfg.zephyr.tornadoDuration - tornado.timer) * 18) * 0.45;
+      b.y = tornado.y + Math.sin((this.cfg.zephyr.tornadoDuration - tornado.timer) * 22) * 0.35;
+      b.z = 0;
+      if (tornado.timer <= 0) {
+        const aimX = (Math.random() * 2 - 1) * (this.halfW - 1.2);
+        const aimZ = -(3.5 + Math.random() * (this.halfL - 5));
+        b.x = 0; b.y = Math.max(2, b.y); b.z = 0.8;
+        b.vx = b.vy = b.vz = 0;
+        b.speed = this.cfg.ball.maxSpeed;
+        b.held = false;
+        const info = this.shoot(this.fighters[PLAYER], aimX, aimZ, { quality: 'normal', timingFactor: 0 });
+        b.speed = this.cfg.zephyr.tornadoSpeed;
+        this.effects.tornado = null;
+        this.events.push({ type: 'tornadoLaunch', x: b.x, y: b.y, z: b.z, aimX, aimZ, ...info });
+      }
+      return;
+    }
+    if (this.effects.ballStop) {
+      const stopped = this.effects.ballStop;
+      stopped.timer -= dt;
+      if (stopped.timer <= 0) {
+        b.vx = stopped.vx; b.vy = stopped.vy; b.vz = stopped.vz;
+        this.effects.ballStop = null;
+        this.events.push({ type: 'shortCircuitRelease', x: b.x, y: b.y, z: b.z });
+      } else return;
+    }
+    const previousZ = b.z;
     const res = b.step(dt);
     let verdict = null;
+
+    if (this.effects.frostWall > 0 && !this.effects.frostWallUsed
+      && (previousZ - this.cfg.glacia.wallZ) * (b.z - this.cfg.glacia.wallZ) <= 0
+      && Math.abs(b.x) <= this.halfW - b.r * 0.5
+      && Math.abs(previousZ - this.cfg.glacia.wallZ) > 0.001) {
+      b.vz *= -1;
+      b.z = previousZ < this.cfg.glacia.wallZ ? this.cfg.glacia.wallZ - 0.04 : this.cfg.glacia.wallZ + 0.04;
+      this.effects.frostWallUsed = true;
+      this.events.push({ type: 'wallReflect', x: b.x, y: b.y, z: b.z });
+    }
 
     if (res.bounce) {
       this.events.push({
@@ -466,6 +742,7 @@ export class Match {
     if (this.rules.state !== 'live') return;
     [this.fighters[PLAYER], this.fighters[BOT]].forEach((f) => {
       if (this.rules.state !== 'live') return;
+      if (f.id === BOT && this.effects.overload > 0) return;
       if (!f.parry.canConnect || !this.rules.canHit(f.id, b.z)) return;
       const rx = f.x, ry = 1.4, rz = f.z - f.sign * 0.5;
       const dist = Math.hypot(b.x - rx, b.y - ry, b.z - rz);
@@ -476,12 +753,31 @@ export class Match {
       if (f.id === BOT && q === 'perfect' && Math.random() > this.cfg.bot.perfectChance) q = 'normal';
       const tf = timingFactor(c.error, q, this.cfg.aim);
       const strong = f.id === PLAYER && f.swingType === 'strong';
+      let passiveStacks = 0;
+      let passiveBonus = 0;
+      let curve = false;
+      if (f.id === PLAYER) {
+        f.perfectStreak = this.characterId === 'ignis' && q === 'perfect'
+          ? Math.min(f.perfectStreak + 1, this.cfg.ignis.passive.maxStacks)
+          : 0;
+        passiveStacks = f.perfectStreak;
+        if (this.characterId === 'ignis' && q === 'perfect') passiveBonus = this.ball.speed * this.cfg.ignis.passive.bonusPerStack * passiveStacks;
+        curve = f.flameWindow > 0;
+        if (curve) f.flameWindow = 0;
+      }
       const info = this.shoot(f, f.aimX, f.aimZ, {
         quality: q, timingFactor: tf,
         devMult: f.id === BOT ? this.cfg.bot.aimDeviationMult : 1,
-        strong,
+        strong, passiveBonus, curve,
       });
-      this.events.push({ type: 'hit', who: f.id, quality: q, strong, error: c.error, x: b.x, y: b.y, z: b.z, ...info });
+      if (f.id === PLAYER && this.characterId === 'volta') {
+        b.zigzagTime = this.cfg.volta.zigzagDuration;
+        b.zigzagAcceleration = this.cfg.volta.zigzagAcceleration;
+        b.zigzagInterval = this.cfg.volta.zigzagInterval;
+        b.zigzagClock = 0;
+        b.zigzagDirection = Math.sign(Math.random() - 0.5) || 1;
+      }
+      this.events.push({ type: 'hit', who: f.id, quality: q, strong, curve, passiveStacks, error: c.error, x: b.x, y: b.y, z: b.z, ...info });
     });
   }
 
@@ -506,6 +802,9 @@ export class Match {
   }
 
   finishPoint(winner, reason, kind) {
+    this.meteor = null;
+    this.fighters[PLAYER].perfectStreak = 0;
+    this.fighters[PLAYER].flameWindow = 0;
     this.state.award(winner);
     this.phase = 'point';
     this.phaseTime = 0;

@@ -15,7 +15,7 @@ import { ChaosOrb } from '../objects/ChaosOrb.js';
 import { CameraRig } from './Camera.js';
 import { LightingRig } from './Lighting.js';
 import { pointUniforms, updatePointScale } from '../utils/softPoints.js';
-import { AimMarker, BounceMarks, ServeBox, ServeRing } from '../arena/CourtMarkers.js';
+import { AimMarker, BounceMarks, ImpactWaves, ServeBox, ServeRing, AbilityFieldVisuals } from '../arena/CourtMarkers.js';
 import { Burst } from '../effects/Burst.js';
 import { rallyRegion, boxRegion, riskAt, deviationDeg, clampToBox } from '../sim/Aim.js';
 import { Match } from '../sim/Match.js';
@@ -77,24 +77,37 @@ export class Game {
     // Gameplay: simulação pura (passo fixo) + personagens, marcadores e HUD que só a desenham.
     this.match = new Match(gameConfig);
     this.input = new InputManager(this.renderer.domElement);
-    this.hud = new Hud(this.root, gameConfig.winScore);
+    this.selectedCharacterId = MVP_MATCHUP.player;
+    this.match.setPlayerCharacter(this.selectedCharacterId);
+    this.hud = new Hud(this.root, gameConfig.winScore, ROSTER, this.selectedCharacterId);
+    this.playerCharacters = Object.fromEntries(Object.entries(ROSTER).map(([id, def]) => [
+      id, new Character(def, def.speed),
+    ]));
+    Object.entries(this.playerCharacters).forEach(([id, character]) => {
+      character.group.visible = id === this.selectedCharacterId;
+    });
     this.characters = {
-      player: new Character(ROSTER[MVP_MATCHUP.player], gameConfig.player.speed),
+      player: this.playerCharacters[this.selectedCharacterId],
       bot: new Character(ROSTER[MVP_MATCHUP.bot], gameConfig.bot.speed),
     };
+    this.hud.onCharacterSelected = (id) => this.setPlayerCharacter(id);
     this.aimMarker = new AimMarker();
     this.bounceMarks = new BounceMarks();
+    this.impactWaves = new ImpactWaves();
+    this.abilityFields = new AbilityFieldVisuals(cfg.court);
     this.serveBox = new ServeBox();
     this.serveRing = new ServeRing();
     this.burst = new Burst();
     this.hitStop = 0;
     this.slowTimer = 0;     // slow motion (segundos reais restantes)
+    this.dashTrailTimer = 0;
+    this.meteorTrailTimer = 0;
     this.lastScoreKey = '';
 
     this.arena.add(
       this.court.group, this.barrier.group, this.obelisks.group, this.banners.group,
-      this.serveBox.group, this.aimMarker.group, this.bounceMarks.group, this.serveRing.group, this.burst.points,
-      this.characters.player.group, this.characters.bot.group,
+      this.serveBox.group, this.aimMarker.group, this.bounceMarks.group, this.impactWaves.group, this.abilityFields.group, this.serveRing.group, this.burst.points,
+      ...Object.values(this.playerCharacters).map((character) => character.group), this.characters.bot.group,
       ...this.orb.objects,
     );
     this.scene.add(this.arena);
@@ -143,6 +156,16 @@ export class Game {
     });
   }
 
+  setPlayerCharacter(id) {
+    if (!this.playerCharacters[id]) return;
+    this.selectedCharacterId = id;
+    Object.entries(this.playerCharacters).forEach(([characterId, character]) => {
+      character.group.visible = characterId === id;
+    });
+    this.characters.player = this.playerCharacters[id];
+    this.match.setPlayerCharacter(id);
+  }
+
   /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, partículas, slow motion. */
   handleEvents(events) {
     const pc = gameConfig.parry;
@@ -185,22 +208,98 @@ export class Game {
         case 'hit': {
           this.characters[e.who].flashShield(e.quality);
           this.orb.pulse(e.strong ? 1.6 : 1);
+          this.impactWaves.spawn(e.x, e.z, e.curve ? '#44eaff' : e.strong ? '#ff6428' : '#ffc94d');
           if (e.strong) {
             this.cameraRig.shake(e.quality === 'perfect' ? 0.55 : 0.38, 0.34);
             if (e.quality === 'perfect') this.hitStop = pc.hitStop;
             if (e.who === 'player') {
-              this.hud.flash(e.quality === 'perfect' ? 'CORTADA PERFEITA!' : 'CORTADA!', e.quality === 'perfect' ? 'perfect' : 'info', 1000);
+              this.hud.flash(
+                e.curve ? 'CORTADA FLAMEJANTE!' : e.quality === 'perfect' ? 'CORTADA PERFEITA!' : 'CORTADA!',
+                e.quality === 'perfect' ? 'perfect' : 'info', 1000,
+                e.passiveStacks ? `COMBUSTÃO x${e.passiveStacks}` : '',
+              );
             }
+          } else if (e.curve && e.who === 'player') {
+            this.cameraRig.shake(0.42, 0.3);
+            this.burst.emit(e.x, e.y, e.z, { count: 42, color: '#ff7a26', speed: 5, up: 2.5, life: 0.55, size: 0.24 });
+            this.hud.flash('CURVA FLAMEJANTE!', 'perfect', 900, e.passiveStacks ? `COMBUSTÃO x${e.passiveStacks}` : '');
           } else if (e.quality === 'perfect') {
             this.cameraRig.shake(0.38, 0.3);
             this.hitStop = pc.hitStop;
-            this.hud.flash(e.who === 'player' ? 'PARRY PERFEITO!' : 'Parry perfeito do rival!', e.who === 'player' ? 'perfect' : 'bad', 900);
+            this.hud.flash(
+              e.who === 'player' ? 'PARRY PERFEITO!' : 'Parry perfeito do rival!',
+              e.who === 'player' ? 'perfect' : 'bad', 900,
+              e.who === 'player' && e.passiveStacks ? `COMBUSTÃO x${e.passiveStacks}` : '',
+            );
           } else {
             this.cameraRig.shake(0.1 + this.orb.speedRatio * 0.15, 0.2);
           }
           if (e.who === 'player') this.hud.setTiming(e.error, e.quality);
           break;
         }
+        case 'dash':
+          this.burst.emit(e.x, 0.18, e.z, { count: 42, color: '#ff4b19', speed: 5.5, up: 2.2, life: 0.6, size: 0.25 });
+          this.impactWaves.spawn(e.x, e.z, '#ff6a24');
+          this.cameraRig.shake(0.16, 0.2);
+          this.hud.flash('INVESTIDA FLAMEJANTE!', 'info', 850);
+          break;
+        case 'dashReady':
+          this.burst.emit(e.x, 0.18, e.z, { count: 18, color: '#ffd34f', speed: 2.5, up: 2.2, life: 0.4, size: 0.18 });
+          break;
+        case 'meteor':
+          this.cameraRig.shake(0.28, 0.38);
+          this.hud.flash('METEORO!', 'perfect', 1300, 'Acerte o centro do círculo para devolver');
+          this.burst.emit(this.orb.position.x, this.orb.position.y, this.orb.position.z, { count: 48, color: '#ff6428', speed: 4.2, up: 8, life: 0.8, size: 0.28 });
+          break;
+        case 'meteorFall':
+          this.burst.emit(e.x, e.y, e.z, { count: 42, color: '#fff0b0', speed: 4.5, up: 2, life: 0.45, size: 0.24 });
+          break;
+        case 'meteorImpact':
+          this.burst.emit(e.x, 0.12, e.z, { count: 64, color: e.returned ? '#ffe17a' : '#ff482e', speed: 6, up: 4, life: 0.8, size: 0.28 });
+          this.impactWaves.spawn(e.x, e.z, '#ffb12e', 0);
+          this.impactWaves.spawn(e.x, e.z, '#fff078', 0.12);
+          this.impactWaves.spawn(e.x, e.z, '#ff4b21', 0.24);
+          this.cameraRig.shake(0.42, 0.38);
+          break;
+        case 'meteorReturn':
+          this.hud.flash('METEORO DEVOLVIDO!', 'bad', 1000);
+          break;
+        case 'frostWall':
+          this.burst.emit(0, 1.4, 5.6, { count: 44, color: '#8beaff', speed: 3.5, up: 2.5, life: 0.8, size: 0.23 });
+          this.hud.flash('MURALHA DE CRISTAL', 'info', 900);
+          break;
+        case 'wallReflect':
+          this.burst.emit(e.x, e.y, e.z, { count: 50, color: '#b6f6ff', speed: 5, up: 3.2, life: 0.65, size: 0.22 });
+          this.impactWaves.spawn(e.x, e.z, '#8beaff');
+          this.hud.flash('BOLA REBATIDA PELA MURALHA!', 'good', 900);
+          break;
+        case 'iceRink':
+          this.burst.emit(0, 0.12, -5, { count: 80, color: '#8beaff', speed: 5, up: 1.5, life: 1, size: 0.18 });
+          this.hud.flash('PISTA DE PATINAÇÃO', 'perfect', 1100, 'O rival perdeu tração');
+          break;
+        case 'gust':
+          this.burst.emit(e.x, e.y, e.z, { count: 34, color: '#9dffe2', speed: 5, up: 1.8, life: 0.55, size: 0.19 });
+          this.hud.flash('RAJADA DE VENTO', 'info', 750);
+          break;
+        case 'tornado':
+          this.cameraRig.shake(0.12, 0.3);
+          this.hud.flash('OLHO DO FURACÃO', 'perfect', 900, 'A bola foi sugada pela rede');
+          break;
+        case 'tornadoLaunch':
+          this.burst.emit(e.x, e.y, e.z, { count: 72, color: '#9dffe2', speed: 8, up: 3.4, life: 0.6, size: 0.24 });
+          this.cameraRig.shake(0.5, 0.35);
+          break;
+        case 'shortCircuit':
+        case 'shortCircuitRelease':
+          this.burst.emit(e.x, e.y, e.z, { count: 34, color: '#ffe45c', speed: 4.5, up: 2.2, life: 0.45, size: 0.17 });
+          if (e.type === 'shortCircuit') this.hud.flash('CURTO-CIRCUITO', 'info', 700);
+          break;
+        case 'overload':
+          this.hud.staticFlash();
+          this.hud.flash('SOBRECARGA!', 'perfect', 950, 'Raio em velocidade máxima');
+          this.cameraRig.shake(0.38, 0.3);
+          this.burst.emit(e.x, e.y, e.z, { count: 64, color: '#fff178', speed: 8, up: 3, life: 0.55, size: 0.24 });
+          break;
         case 'bounce':
           this.orb.pulse(0.5);
           this.bounceMarks.spawn(e.x, e.z, e.inside);
@@ -252,13 +351,23 @@ export class Game {
 
     // --- entrada -> simulação (passo fixo dentro do Match) -> eventos
     const intent = this.input.read(this.camera, this.arena);
+    const abilityRequests = this.hud.consumeAbilityRequests();
+    intent.dashPress ||= abilityRequests.dash;
+    intent.ultimatePress ||= abilityRequests.ultimate;
     const match = this.match;
-    if (match.phase === 'ready' && intent.press) {
-      match.start();
-      intent.press = false; // o clique de "começar" não vira saque
-    } else if (match.phase === 'over' && intent.press && match.phaseTime > 0.8) {
-      match.restart();
+    if (match.phase === 'ready') {
+      if (this.hud.consumeCtaRequest()) match.start();
+      // Cliques no fundo e nos controles do menu não viram golpes no jogo.
       intent.press = false;
+      intent.strongPress = false;
+      intent.dashPress = false;
+      intent.ultimatePress = false;
+    } else if (match.phase === 'over') {
+      if (match.phaseTime > 0.8 && this.hud.consumeCtaRequest()) match.restart();
+      intent.press = false;
+      intent.strongPress = false;
+      intent.dashPress = false;
+      intent.ultimatePress = false;
     }
     // Tempo de simulação: hit-stop (congela) e slow motion (OUT!) afetam a partida e os personagens.
     let timeScale = 1;
@@ -274,7 +383,29 @@ export class Game {
     this.characters.player.update(vdt, time, match.fighters.player);
     this.characters.bot.update(vdt, time, match.fighters.bot);
     this.bounceMarks.update(vdt);
+    this.dashTrailTimer -= vdt;
+    const player = match.fighters.player;
+    if (player.dashTimer > 0 && this.dashTrailTimer <= 0) {
+      this.burst.emit(player.x - player.dashDirX * 0.35, 0.35, player.z - player.dashDirZ * 0.35, {
+        count: 8, color: '#ff6324', speed: 2.2, up: 1.2, life: 0.42, size: 0.2,
+      });
+      this.dashTrailTimer = 0.035;
+    }
+    this.meteorTrailTimer -= vdt;
+    if (match.meteor && this.meteorTrailTimer <= 0) {
+      const b = match.ball;
+      this.burst.emit(b.x, b.y, b.z, {
+        count: match.meteor.falling ? 7 : 4,
+        color: match.meteor.falling ? '#fff0b0' : '#ff6a24',
+        speed: match.meteor.falling ? 2.8 : 1.8,
+        up: match.meteor.falling ? 1.5 : 3.2,
+        life: 0.36, size: 0.22,
+      });
+      this.meteorTrailTimer = 0.035;
+    }
     this.burst.update(vdt);
+    this.impactWaves.update(vdt);
+    this.abilityFields.update(match.effects, time);
 
     const sInfo = match.serveInfo;
     const playerServing = sInfo.inServe && sInfo.server === 'player';
@@ -299,8 +430,9 @@ export class Game {
     const spread = Math.hypot(ax - p.x, az - p.z) * Math.tan(typicalDev);
     this.aimMarker.update(time, ax, az, {
       inside, risk, spread,
-      visible: match.phase === 'rally' || (playerServing && sInfo.active),
+      visible: (match.phase === 'rally' && !match.meteor) || (playerServing && sInfo.active),
     });
+    this.hud.setAbilityStatus(match.abilityInfo, ROSTER[this.selectedCharacterId]);
     const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
     if (scoreKey !== this.lastScoreKey) {
       this.lastScoreKey = scoreKey;

@@ -15,6 +15,12 @@ export class BallPhysics {
   reset() {
     this.x = 0; this.y = 2; this.z = 0;
     this.vx = 0; this.vy = 0; this.vz = 0;
+    this.curveAccelX = 0;
+    this.curveTime = 0;
+    this.zigzagTime = 0;
+    this.zigzagClock = 0;
+    this.zigzagInterval = 0.09;
+    this.zigzagDirection = 1;
     this.speed = this.cfg.baseSpeed; // velocidade "nominal" do rali (define a cor)
     this.held = true;                // preso na mão de quem vai sacar
     this.fallen = false;             // caiu no vácuo
@@ -31,8 +37,25 @@ export class BallPhysics {
     const c = this.cfg;
     const pz = this.z;
 
+    if (this.zigzagTime > 0) {
+      this.zigzagTime = Math.max(0, this.zigzagTime - dt);
+      this.zigzagClock -= dt;
+      if (this.zigzagClock <= 0) {
+        this.zigzagDirection *= -1;
+        this.zigzagClock = this.zigzagInterval;
+      }
+      this.vx += this.zigzagDirection * (this.zigzagAcceleration || 68) * dt;
+    }
+
     this.vy -= c.gravity * dt;
-    this.x += this.vx * dt;
+    const curveDt = Math.min(dt, this.curveTime);
+    if (curveDt > 0) {
+      this.x += this.vx * curveDt + 0.5 * this.curveAccelX * curveDt * curveDt;
+      this.vx += this.curveAccelX * curveDt;
+      this.curveTime -= curveDt;
+      if (this.curveTime <= 0) this.curveAccelX = 0;
+    }
+    this.x += this.vx * (dt - curveDt);
     this.y += this.vy * dt;
     this.z += this.vz * dt;
 
@@ -43,6 +66,8 @@ export class BallPhysics {
       this.vy = Math.max(-this.vy * c.restitution, c.minBounceSpeed);
       this.vx *= c.groundFriction;
       this.vz *= c.groundFriction;
+      this.curveAccelX = 0;
+      this.curveTime = 0;
       out.bounce = true;
       out.bx = this.x;
       out.bz = this.z;

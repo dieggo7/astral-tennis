@@ -12,6 +12,8 @@ export class InputManager {
     this.keys = new Set();
     this.pressQueued = false;
     this.strongPressQueued = false;
+    this.dashQueued = false;
+    this.ultimateQueued = false;
     this.ndc = new THREE.Vector2(0, -0.3);
     this.raycaster = new THREE.Raycaster();
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -23,6 +25,8 @@ export class InputManager {
       if (e.repeat) return;
       this.keys.add(e.code);
       if (e.code === 'Space' || e.code === 'Enter') this.pressQueued = true;
+      if (e.code === 'KeyE') this.dashQueued = true;
+      if (e.code === 'KeyQ') this.ultimateQueued = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -62,8 +66,12 @@ export class InputManager {
     const aim = this.updateAim(camera, arena);
     const press = this.pressQueued;
     const strongPress = this.strongPressQueued;
+    const dashPress = this.dashQueued;
+    const ultimatePress = this.ultimateQueued;
     this.pressQueued = false;
     this.strongPressQueued = false;
-    return { moveX, moveZ, press, strongPress, aimX: aim.x, aimZ: aim.z };
+    this.dashQueued = false;
+    this.ultimateQueued = false;
+    return { moveX, moveZ, press, strongPress, dashPress, ultimatePress, aimX: aim.x, aimZ: aim.z };
   }
 }

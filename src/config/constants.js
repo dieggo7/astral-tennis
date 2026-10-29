@@ -154,10 +154,29 @@ export const gameConfig = {
     hitStop: 0.07,         // congelada rápida no Parry perfeito (s)
   },
   smash: {
-    speedMultiplier: 2,
+    speedMultiplier: 2.25,
     imperfectOutChance: 0.7,
     perfectAimError: 0.2, // desvio máximo como fração da meia quadra (20%)
   },
+  ignis: {
+    passive: { bonusPerStack: 0.22, maxStacks: 4 },
+    dash: {
+      cooldown: 20, duration: 0.2, speed: 22, maxDistance: 4.2,
+      curveWindow: 1.0, curveDuration: 0.28, curveAcceleration: 38,
+    },
+    meteor: {
+      cooldown: 90, launchSpeed: 18, fallGravity: 34, impactRadius: 1.8, centerTolerance: 0.32,
+    },
+  },
+  characters: {
+    ignis: { speed: 9.5, perfectWindow: 0.08, abilityCooldown: 20, ultimateCooldown: 90 },
+    glacia: { speed: 9.5, perfectWindow: 0.12, abilityCooldown: 20, ultimateCooldown: 90 },
+    zephyr: { speed: 12, perfectWindow: 0.08, abilityCooldown: 20, ultimateCooldown: 90 },
+    volta: { speed: 9.5, perfectWindow: 0.08, abilityCooldown: 20, ultimateCooldown: 90 },
+  },
+  glacia: { wallDuration: 5, wallZ: 6, iceDuration: 10 },
+  zephyr: { gustImpulse: 10, tornadoDuration: 2, tornadoSpeed: 42 },
+  volta: { stopDuration: 0.5, zigzagDuration: 0.72, zigzagAcceleration: 68, zigzagInterval: 0.09 },
   player: { speed: 9.5, accel: 55, minZ: 1.2, home: [0, 9.5] },
   bot: {
     speed: 6.8,
