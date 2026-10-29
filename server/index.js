@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { resolve } from "node:path";
+import { resolve, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFile, stat } from "node:fs/promises";
 import { Server } from "socket.io";
 import { getModeConfig } from "../src/config/constants.js";
 import { Match } from "../shared/sim.js";
@@ -83,14 +84,42 @@ function withRandom(room, fn) {
 }
 
 export function createGameServer({ port = Number(process.env.PORT || 3001), clientOrigin = process.env.CLIENT_ORIGIN || "*", logger = console } = {}) {
-  const httpServer = createServer((req, res) => {
+  const distDir = resolve("dist");
+  const mimeTypes = {
+    ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg", ".webp": "image/webp", ".glb": "model/gltf-binary",
+    ".gltf": "model/gltf+json", ".woff2": "font/woff2", ".ico": "image/x-icon",
+  };
+  const httpServer = createServer(async (req, res) => {
     if (req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
       return;
     }
-    res.writeHead(200, { "content-type": "text/plain" });
-    res.end("Astral Tennis room server");
+    try {
+      const pathname = decodeURIComponent(new URL(req.url || "/", "http://localhost").pathname);
+      const requestedPath = resolve(distDir, `.${pathname}`);
+      const isInsideDist = requestedPath === distDir || requestedPath.startsWith(`${distDir}${sep}`);
+      let filePath = isInsideDist ? requestedPath : resolve(distDir, "index.html");
+      try {
+        if (!(await stat(filePath)).isFile()) throw new Error("Not a file");
+      } catch {
+        filePath = resolve(distDir, "index.html");
+      }
+      const content = await readFile(filePath);
+      res.writeHead(200, { "content-type": mimeTypes[extname(filePath).toLowerCase()] || "application/octet-stream" });
+      res.end(content);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Astral Tennis is starting. The frontend build (dist/) is not available yet.");
+      } else {
+        res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Invalid request");
+      }
+    }
   });
   const io = new Server(httpServer, {
     cors: { origin: clientOrigin === "*" ? "*" : clientOrigin.split(",").map((x) => x.trim()), methods: ["GET", "POST"] },
