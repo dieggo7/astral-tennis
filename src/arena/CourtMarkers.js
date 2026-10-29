@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 /**
  * Marcadores desenhados sobre a quadra (espaço local da arena):
@@ -8,9 +8,22 @@ import * as THREE from 'three';
 export class AimMarker {
   constructor() {
     this.group = new THREE.Group();
-    this.mat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.68, 40).rotateX(-Math.PI / 2), this.mat);
-    const dot = new THREE.Mesh(new THREE.CircleGeometry(0.1, 16).rotateX(-Math.PI / 2), this.mat);
+    this.mat = new THREE.MeshBasicMaterial({
+      color: "#ffffff",
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.68, 40).rotateX(-Math.PI / 2),
+      this.mat,
+    );
+    const dot = new THREE.Mesh(
+      new THREE.CircleGeometry(0.1, 16).rotateX(-Math.PI / 2),
+      this.mat,
+    );
     const crossGeo = new THREE.PlaneGeometry(0.1, 1.5).rotateX(-Math.PI / 2);
     const c1 = new THREE.Mesh(crossGeo, this.mat);
     const c2 = new THREE.Mesh(crossGeo, this.mat);
@@ -35,8 +48,18 @@ export class BounceMarks {
   constructor(count = 6) {
     this.group = new THREE.Group();
     this.marks = Array.from({ length: count }, () => {
-      const mat = new THREE.MeshBasicMaterial({ color: '#7dffb0', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.55, 36).rotateX(-Math.PI / 2), mat);
+      const mat = new THREE.MeshBasicMaterial({
+        color: "#7dffb0",
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(0.4, 0.55, 36).rotateX(-Math.PI / 2),
+        mat,
+      );
       mesh.position.y = 0.06;
       mesh.renderOrder = 3;
       this.group.add(mesh);

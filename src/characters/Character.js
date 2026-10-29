@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { loadCharacter } from './CharacterLoader.js';
-import { animateWizard } from './ProceduralWizard.js';
-import { getShadowTexture } from '../utils/textures.js';
+import * as THREE from "three";
+import { loadCharacter } from "./CharacterLoader.js";
+import { animateWizard } from "./ProceduralWizard.js";
+import { getShadowTexture } from "../utils/textures.js";
 
 /**
  * Mago em cena. Posição/rotação vêm da simulação (fighter); aqui só desenhamos e animamos.
@@ -22,7 +22,15 @@ export class Character {
 
     this.shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(1.9, 1.9).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map: getShadowTexture(), color: '#02040f', transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
+      new THREE.MeshBasicMaterial({
+        map: getShadowTexture(),
+        color: "#02040f",
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      }),
     );
     this.shadow.position.y = 0.035;
     this.shadow.renderOrder = 2;
@@ -40,7 +48,7 @@ export class Character {
     this.fallback = res.fallback;
     if (this.rig) this.rig.flashColor.set(this.def.accent);
     this.ready = true;
-    this.play('idle');
+    this.play("idle");
   }
 
   /** GLB: troca de animação com fade. */
@@ -51,7 +59,8 @@ export class Character {
     next.reset();
     next.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
     next.clampWhenFinished = once;
-    if (once && duration > 0) next.timeScale = next.getClip().duration / duration;
+    if (once && duration > 0)
+      next.timeScale = next.getClip().duration / duration;
     else next.timeScale = 1;
     next.play();
     if (this.current) this.current.crossFadeTo(next, 0.12, false);
@@ -61,8 +70,10 @@ export class Character {
   /** Feedback de golpe: o escudo brilha (mais forte no Parry perfeito). */
   flashShield(quality) {
     if (!this.rig) return;
-    this.rig.flash = quality === 'perfect' ? 1 : 0.55;
-    this.rig.flashColor.set(quality === 'perfect' ? '#ffffff' : this.def.accent);
+    this.rig.flash = quality === "perfect" ? 1 : 0.55;
+    this.rig.flashColor.set(
+      quality === "perfect" ? "#ffffff" : this.def.accent,
+    );
   }
 
   update(dt, time, f) {
@@ -72,13 +83,20 @@ export class Character {
 
     const swingT = f.animT >= 0 ? f.animT / f.animDur : -1;
     if (this.rig) {
-      animateWizard(this.rig, { vx: f.vx, vz: f.vz, yaw: f.yaw, swingT, mood: f.mood }, dt, time, this.maxSpeed);
+      animateWizard(
+        this.rig,
+        { vx: f.vx, vz: f.vz, yaw: f.yaw, swingT, mood: f.mood },
+        dt,
+        time,
+        this.maxSpeed,
+      );
     } else if (this.mixer) {
       const moving = Math.hypot(f.vx, f.vz) > 0.8;
-      if (f.mood === 'win') this.play('win');
-      else if (f.mood === 'lose') this.play('lose');
-      else if (swingT >= 0) this.play('swing', { once: true, duration: f.animDur });
-      else this.play(moving ? 'run' : 'idle');
+      if (f.mood === "win") this.play("win");
+      else if (f.mood === "lose") this.play("lose");
+      else if (swingT >= 0)
+        this.play("swing", { once: true, duration: f.animDur });
+      else this.play(moving ? "run" : "idle");
       this.mixer.update(dt);
     }
   }

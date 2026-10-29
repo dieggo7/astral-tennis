@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { createSoftPoints } from '../utils/softPoints.js';
+import * as THREE from "three";
+import { createSoftPoints } from "../utils/softPoints.js";
 
 /**
  * Barreira de luz no lugar da rede. Tudo (a barreira e o orbe) está no mesmo
@@ -26,7 +26,7 @@ export class LightBarrier {
         uSize: { value: new THREE.Vector2(W, H) },
         uColA: { value: new THREE.Color(config.colorA) },
         uColB: { value: new THREE.Color(config.colorB) },
-        uTint: { value: new THREE.Color('#ffffff') },
+        uTint: { value: new THREE.Color("#ffffff") },
         uHitUv: { value: this.hitUv },
         uHitAge: { value: 99 },
         uHitStrength: { value: 0 },
@@ -127,7 +127,10 @@ export class LightBarrier {
       `,
     });
 
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, H, 32, 8), this.material);
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(W, H, 32, 8),
+      this.material,
+    );
     plane.position.y = H / 2;
     plane.renderOrder = 5;
     this.group.add(plane);
@@ -137,14 +140,30 @@ export class LightBarrier {
     const positions = new Float32Array(n * 3);
     const colors = new Float32Array(n * 3);
     const sizes = new Float32Array(n);
-    const ca = new THREE.Color('#7ee8ff'), cb = new THREE.Color('#ff7be8');
+    const ca = new THREE.Color("#7ee8ff"),
+      cb = new THREE.Color("#ff7be8");
     for (let i = 0; i < n; i += 1) {
-      positions.set([(Math.random() - 0.5) * W, (Math.random() - 0.5) * H, (Math.random() - 0.5) * 0.3], i * 3);
+      positions.set(
+        [
+          (Math.random() - 0.5) * W,
+          (Math.random() - 0.5) * H,
+          (Math.random() - 0.5) * 0.3,
+        ],
+        i * 3,
+      );
       const c = i % 2 ? ca : cb;
       colors.set([c.r, c.g, c.b], i * 3);
       sizes[i] = 0.08 + Math.random() * 0.12;
     }
-    const sparks = createSoftPoints({ positions, colors, sizes, drift: [0, 0.6, 0], wrap: [0, H, 0], twinkle: 0.7, sway: 0.08 });
+    const sparks = createSoftPoints({
+      positions,
+      colors,
+      sizes,
+      drift: [0, 0.6, 0],
+      wrap: [0, H, 0],
+      twinkle: 0.7,
+      sway: 0.08,
+    });
     sparks.points.position.y = H / 2;
     this.group.add(sparks.points);
   }
@@ -152,7 +171,10 @@ export class LightBarrier {
   /** Dispara a ondulação localizada (posição no espaço local da arena). */
   pulse(pos, strength = 1) {
     const { width: W, height: H } = this.config;
-    this.hitUv.set(THREE.MathUtils.clamp(pos.x / W + 0.5, 0, 1), THREE.MathUtils.clamp(pos.y / H, 0, 1));
+    this.hitUv.set(
+      THREE.MathUtils.clamp(pos.x / W + 0.5, 0, 1),
+      THREE.MathUtils.clamp(pos.y / H, 0, 1),
+    );
     this.hitAge = 0;
     this.hitStrength = strength;
   }
@@ -168,7 +190,10 @@ export class LightBarrier {
     u.uTime.value = time;
     u.uHitAge.value = this.hitAge;
     u.uHitStrength.value = this.hitStrength;
-    this.orbUv.set(THREE.MathUtils.clamp(orbPos.x / W + 0.5, 0, 1), THREE.MathUtils.clamp(orbPos.y / H, 0, 1));
+    this.orbUv.set(
+      THREE.MathUtils.clamp(orbPos.x / W + 0.5, 0, 1),
+      THREE.MathUtils.clamp(orbPos.y / H, 0, 1),
+    );
     this.prox = Math.max(0, 1 - Math.abs(orbPos.z) / proximityRadius);
     u.uProx.value = this.prox * this.prox;
   }

@@ -7,28 +7,40 @@
  */
 export const ROSTER = {
   ignis: {
-    id: 'ignis',
-    name: 'Ignis',
-    element: 'Fogo',
-    color: '#d8341c',
-    accent: '#ffb347',
-    model: '/models/ignis.glb',
+    id: "ignis",
+    name: "Ignis",
+    element: "Fogo",
+    color: "#d8341c",
+    accent: "#ffb347",
+    model: "/models/ignis.glb",
     scale: 1,
-    yawOffset: 0,            // gire (em rad) se o GLB não olhar para +Z
-    clips: { idle: 'idle', run: 'run', swing: 'swing', win: 'win', lose: 'lose' },
+    yawOffset: 0, // gire (em rad) se o GLB não olhar para +Z
+    clips: {
+      idle: "idle",
+      run: "run",
+      swing: "swing",
+      win: "win",
+      lose: "lose",
+    },
   },
   glacia: {
-    id: 'glacia',
-    name: 'Glacia',
-    element: 'Gelo',
-    color: '#2f7fd8',
-    accent: '#9be8ff',
-    model: '/models/glacia.glb',
+    id: "glacia",
+    name: "Glacia",
+    element: "Gelo",
+    color: "#2f7fd8",
+    accent: "#9be8ff",
+    model: "/models/glacia.glb",
     scale: 1,
     yawOffset: 0,
-    clips: { idle: 'idle', run: 'run', swing: 'swing', win: 'win', lose: 'lose' },
+    clips: {
+      idle: "idle",
+      run: "run",
+      swing: "swing",
+      win: "win",
+      lose: "lose",
+    },
   },
 };
 
 // No MVP: o jogador é o Ignis e o rival usa o visual da Glacia (sem habilidades).
-export const MVP_MATCHUP = { player: 'ignis', bot: 'glacia' };
+export const MVP_MATCHUP = { player: "ignis", bot: "glacia" };
