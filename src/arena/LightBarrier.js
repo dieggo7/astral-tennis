@@ -98,7 +98,7 @@ export class LightBarrier {
 
           // Bordas: base e topo brilhantes, laterais com fade limpo
           float bottom = smoothstep(0.07, 0.0, h);
-          float topEdge = smoothstep(0.93, 1.0, h);
+          float topEdge = smoothstep(0.90, 1.0, h);
           float side = smoothstep(0.0, 0.05, vUv.x) * smoothstep(1.0, 0.95, vUv.x);
 
           // Fresnel
@@ -116,7 +116,7 @@ export class LightBarrier {
           float orbGlow = exp(-dot(od, od) * 0.35) * uProx;
 
           float energy = vert * 0.55 + lines * 0.5 * (0.4 + vert) + hexGlow * 0.35 * (0.3 + vert)
-                       + ripple * 0.5 + hitGlow * 1.4 + orbGlow * 1.2 + bottom * 1.1 + topEdge * 0.6 + fres * 0.25;
+                       + ripple * 0.5 + hitGlow * 1.4 + orbGlow * 1.2 + bottom * 1.1 + topEdge * 1.6 + fres * 0.25;
           float alpha = clamp(energy * 0.75, 0.0, 0.85) * side;
 
           vec3 col = mix(uColA, uColB, smoothstep(0.05, 0.95, h));

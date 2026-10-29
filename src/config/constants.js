@@ -1,12 +1,40 @@
 import * as THREE from 'three';
 
+// ===================== TUNING: OS VALORES MAIS AJUSTADOS =====================
+// Balanceamento rápido. O resto das configurações abaixo deriva destes valores.
+export const TUNING = {
+  CHARACTER_HEIGHT: 2.6,       // altura de referência do mago (sem a ponta do chapéu)
+  NET_HEIGHT: 0.55,            // altura da rede como proporção da altura do mago (0.50 a 0.60)
+  BALL_RADIUS: 0.38,           // raio do orbe (antes 0.6; -37%)
+  ARENA_MARGIN: 3.0,           // borda de pedra além das linhas (antes 1.5): é o espaço "fora"
+  PERFECT_PARRY_WINDOW: 0.08,  // s: tolerância do Parry perfeito em volta do instante secreto
+  MAX_AIM_DEVIATION: 25,       // graus: desvio máximo (timing ruim + mira extrema)
+  AIM_RISK_CURVE: 2,           // expoente da curva de risco por extremidade (1 = linear, 3 = só nas bordas)
+  AIM_RISK_BASE: 0.08,         // risco mínimo mesmo mirando no centro
+  AIM_TIMING_ERROR_MAX: 0.2,   // s: erro de timing que gera 100% do desvio
+  SERVE_TIMEOUT: 3,            // s: tempo máximo do saque antes do saque automático fraco
+  SERVE_ALTERNATE_EVERY: 1,    // alterna o sacador a cada N pontos (1 ou 2)
+  SERVE_ATTEMPTS: 2,           // saques por ponto (falta no 1º = 2º saque; falta no 2º = dupla falta)
+  SERVE_TIMING_MIN: 0.8,       // s: o instante perfeito do saque é sorteado entre MIN e MAX (a cada saque)
+  SERVE_TIMING_MAX: 1.7,
+  LINE_BRIGHTNESS: 0.8,        // brilho das linhas de limite da quadra (>1 faz brilhar no bloom)
+  LINE_INNER_BRIGHTNESS: 0.35, // brilho das linhas internas (saque, centro)
+  LINE_GLOW: 0.05,             // halo aditivo em volta das linhas
+};
+export const NET_HEIGHT_UNITS = TUNING.NET_HEIGHT * TUNING.CHARACTER_HEIGHT;
+
 // ===================== CONFIGURAÇÃO CENTRAL DA ARENA =====================
 // Tudo que é "ajuste fino" (cores, luzes, bloom, câmera) fica aqui.
 export const arenaConfig = {
   court: {
     width: 12,          // largura jogável (eixo X)
     length: 24,         // comprimento jogável (eixo Z)
-    margin: 1.5,        // borda de pedra além das linhas
+    margin: TUNING.ARENA_MARGIN, // borda de pedra além das linhas
+    serviceLine: 6.2,   // distância da linha de saque até a rede
+    lineBrightness: TUNING.LINE_BRIGHTNESS,
+    lineInnerBrightness: TUNING.LINE_INNER_BRIGHTNESS,
+    lineGlow: TUNING.LINE_GLOW,
+    showSinglesLines: false, // linhas internas de simples (ligar quando houver 2v2)
     floatAmplitude: 0.1,
     floatSpeed: 0.8,
     gold: '#ffc94d',
@@ -14,7 +42,8 @@ export const arenaConfig = {
   },
   barrier: {
     width: 12.8,        // entre os obeliscos
-    height: 3.6,
+    height: NET_HEIGHT_UNITS, // altura da rede (visual e regra)
+    pillarHeight: 3.6,  // altura dos obeliscos (independente da rede)
     pillarX: 6.85,
     colorA: '#35d4ff',  // base
     colorB: '#c04bff',  // topo
@@ -27,13 +56,10 @@ export const arenaConfig = {
     colorHot: '#ff3a5e',
   },
   orb: {
-    radius: 0.6,
-    baseSpeed: 6,
-    maxSpeed: 26,
-    gravity: 22,
-    bounceApex: 2.2,    // altura do quique
-    hitMultiplier: 1.14,
-    autoRally: true,    // vai e volta sozinho para testar o mapa
+    // Só o visual do orbe. A física e as regras ficam em gameConfig (abaixo).
+    radius: TUNING.BALL_RADIUS,
+    baseSpeed: 13,      // velocidade de saque (razão 0 da cor)
+    maxSpeed: 30,       // velocidade máxima do rali (razão 1 da cor)
     colorStops: [
       { t: 0.0, color: '#3da5ff' },
       { t: 0.35, color: '#9b5cff' },
@@ -68,6 +94,79 @@ export const arenaConfig = {
     fogDensity: 0.0055,
   },
   debug: { debugKeys: true },
+};
+
+// ===================== CONFIGURAÇÃO DE GAMEPLAY =====================
+// Tudo que é "feeling" (timing do Parry, bot, velocidades) fica aqui para ajuste rápido.
+export const gameConfig = {
+  winScore: 15,            // 15 ou 25 pontos
+  netHeight: NET_HEIGHT_UNITS, // borda inferior do orbe precisa passar acima disto
+  pointPause: 1.8,         // pausa depois de cada ponto (s)
+  serveDelayBot: 1.1,      // tempo até o bot sacar (s)
+  court: {
+    width: arenaConfig.court.width,
+    length: arenaConfig.court.length,
+    margin: arenaConfig.court.margin,
+    serviceLine: arenaConfig.court.serviceLine,
+    tolerance: 0.25,       // linha conta como dentro
+  },
+  aim: {
+    maxDeviation: TUNING.MAX_AIM_DEVIATION,
+    maxDepthDeviation: 0.15, // erro de profundidade máximo (fração da distância) com timing/mira piores
+    riskCurve: TUNING.AIM_RISK_CURVE,
+    riskBase: TUNING.AIM_RISK_BASE,
+    timingErrorMax: TUNING.AIM_TIMING_ERROR_MAX,
+  },
+  serve: {
+    startDelay: 0.7,       // antes do anel aparecer (o receptor se posiciona)
+    perfectAtRange: [TUNING.SERVE_TIMING_MIN, TUNING.SERVE_TIMING_MAX], // instante ideal sorteado a cada saque (s desde o início do anel)
+    afterPerfect: 0.5,     // quanto o anel ainda contrai depois do instante ideal (fica "atrasado")
+    perfectWindow: 0.09,
+    goodWindow: 0.38,
+    timeout: TUNING.SERVE_TIMEOUT, // total desde o início do saque; estourou = saque automático fraco
+    attempts: TUNING.SERVE_ATTEMPTS,
+    alternateEvery: TUNING.SERVE_ALTERNATE_EVERY,
+    speedMult: { perfect: 1.5, good: 1.0, bad: 0.62 },        // perfeito também acelera o rali
+    deviation: { perfect: 0, good: 0.35, bad: 1.0 },          // fração do timing-error máximo
+    standX: 3.0, standZ: 11.2,   // onde o sacador fica (x alterna entre os lados)
+    receiverX: 2.6,              // onde o receptor espera (no lado da caixa de saque)
+  },
+  ball: {
+    radius: arenaConfig.orb.radius,
+    baseSpeed: arenaConfig.orb.baseSpeed,
+    maxSpeed: arenaConfig.orb.maxSpeed,
+    hitMultiplier: 1.04,   // rebatida normal acelera o rali
+    perfectMultiplier: 2.0,// Parry perfeito: dobro da velocidade (limitado a maxSpeed)
+    gravity: 18,
+    restitution: 0.72,     // quanto da velocidade vertical sobra no quique
+    minBounceSpeed: 4.5,
+    groundFriction: 0.9,   // perda de velocidade horizontal a cada quique
+  },
+  parry: {
+    duration: 0.34,        // duração da animação/janela ativa do escudo (s)
+    sweetTime: 0.12,       // instante "secreto" ideal do contato, contado a partir do clique (s)
+    perfectWindow: TUNING.PERFECT_PARRY_WINDOW, // tolerância em volta do sweetTime (s)
+    cooldownMiss: 0.45,    // recarga quando erra (evita spam de cliques)
+    cooldownHit: 0.18,     // recarga quando acerta
+    reach: 2.1,            // raio de alcance do escudo (unidades)
+    swingMoveFactor: 0.5,  // velocidade de movimento durante o golpe
+    bufferTime: 0.12,      // clique guardado se vier um pouco antes de poder golpear (s)
+    hitStop: 0.07,         // congelada rápida no Parry perfeito (s)
+  },
+  player: { speed: 9.5, accel: 55, minZ: 1.2, home: [0, 9.5] },
+  bot: {
+    speed: 6.8,
+    reaction: 0.24,        // atraso antes de reagir a uma bola nova (s)
+    missChance: 0.08,      // chance de nem tentar rebater uma bola
+    timingJitter: 0.06,    // erro de timing do clique (s)
+    positionError: 0.7,    // erro ao escolher o ponto de interceptação
+    aimDeviationMult: 0.9, // multiplicador do desvio de mira do rival
+    serveQuality: { perfect: 0.2, good: 0.6 }, // resto = saque ruim
+    aimSpread: 4.5,
+    aimMargin: 1.0,        // distância mínima das linhas ao mirar
+    perfectChance: 0.08,   // chance de converter um Parry perfeito em perfeito de verdade
+    home: [0, -9.5],
+  },
 };
 
 export const clamp = (v, min, max) => Math.min(Math.max(v, min), max);

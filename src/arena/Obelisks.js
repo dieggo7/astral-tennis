@@ -8,7 +8,7 @@ export class Obelisks {
     this.crystals = [];
     this.glows = [];
     const px = barrierConfig.pillarX;
-    const H = barrierConfig.height;
+    const H = barrierConfig.pillarHeight ?? barrierConfig.height; // obeliscos altos; a rede é mais baixa
 
     const stone = new THREE.MeshStandardMaterial({ color: '#34407a', roughness: 0.55, metalness: 0.2, flatShading: true });
     const plinthMat = new THREE.MeshStandardMaterial({ color: '#4b5aa0', roughness: 0.5, metalness: 0.2, flatShading: true });
@@ -61,13 +61,13 @@ export class Obelisks {
       this.glows.push(glow);
     });
 
-    // Feixe fino ligando os dois obeliscos no topo da barreira
+    // Feixe fino ligando os dois obeliscos na altura da rede (limite visível)
     const beam = new THREE.Mesh(
       new THREE.CylinderGeometry(0.035, 0.035, px * 2 - 0.6, 6),
       new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 1.2, 1.6), transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     beam.rotation.z = Math.PI / 2;
-    beam.position.set(0, H, 0);
+    beam.position.set(0, barrierConfig.height, 0); // feixe marca o TOPO DA REDE
     this.group.add(beam);
   }
 
