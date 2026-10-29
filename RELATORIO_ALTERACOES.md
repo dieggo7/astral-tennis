@@ -79,6 +79,7 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Olho do Furacão agora dispara para uma posição aleatória dentro das linhas da quadra rival.
 - Muralha de Cristal ocupa toda a largura da quadra, no meio do lado de Glacia, e rebate a primeira bola que a atravessa durante a duração.
 - Combustão recebeu bônus de velocidade maior por cada Parry perfeito consecutivo.
+- Sobrecarga segue uma trajetória contínua até um ponto dentro da quadra rival; não para no ar e a mira é limitada a uma zona profunda da quadra adversária.
 
 ## Arquivos
 **Novos:** src/sim/Aim.js, src/effects/Burst.js. (Rodada 1: src/sim/{BallPhysics,Rules,MatchState,Parry,Match}.js, src/input/*, src/characters/*, src/ui/Hud.js, src/arena/CourtMarkers.js, scripts/simtest.mjs.)

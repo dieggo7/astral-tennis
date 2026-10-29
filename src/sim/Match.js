@@ -455,13 +455,13 @@ export class Match {
       const b = this.ball;
       if (b.held || b.fallen) { this.ultimateCooldown = 0; return; }
       this.effects.overload = 0.42;
-      b.curveAccelX = 0; b.curveTime = 0; b.vy = 0;
-      b.zigzagTime = 0;
-      const side = Math.sign(b.z) || 1;
-      b.vx = 0; b.vz = -side * this.cfg.ball.maxSpeed;
+      const targetX = clamp(f.aimX, -this.halfW + 0.6, this.halfW - 0.6);
+      let targetZ = clamp(f.aimZ, -this.halfL + 0.8, -this.cfg.court.serviceLine);
+      if (Math.hypot(targetX - b.x, targetZ - b.z) < 1) targetZ = targetZ < -8 ? -6.2 : -9;
       b.speed = this.cfg.ball.maxSpeed;
-      this.rules.onHit(PLAYER, false);
-      this.events.push({ type: 'overload', x: b.x, y: b.y, z: b.z });
+      const shot = this.shoot(f, targetX, targetZ, { quality: 'normal', timingFactor: 0 });
+      b.speed = this.cfg.ball.maxSpeed;
+      this.events.push({ type: 'overload', x: b.x, y: b.y, z: b.z, targetX, targetZ, ...shot });
     }
   }
 
