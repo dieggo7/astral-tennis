@@ -73,7 +73,14 @@ export class RoomUI {
     network.on("match:start", (data) => { this.close(); this.onMatchStart(data); });
     network.on("match:paused", ({ seconds }) => { this.open(); this.status.textContent = `Partida pausada; aguardando reconexao por ${seconds} segundos.`; });
     network.on("match:resumed", () => { this.close(); });
-    network.on("match:end", (data) => { this.open(); this.status.textContent = data.winnerTeam ? `Partida encerrada. Venceu o time ${data.winnerTeam}.` : "Partida encerrada pelo anfitriao."; this.onMatchEnd(data); });
+    network.on("match:end", (data) => {
+      this.open();
+      const winnerNames = Array.isArray(data.winnerNames) ? data.winnerNames.filter((name) => typeof name === "string" && name.trim()) : [];
+      this.status.textContent = winnerNames.length
+        ? `Vencedor${winnerNames.length > 1 ? "es" : ""}: ${winnerNames.join(", ")}`
+        : data.winnerTeam ? `Partida encerrada. Venceu o time ${data.winnerTeam}.` : "Partida encerrada pelo anfitriao.";
+      this.onMatchEnd(data);
+    });
   }
 
   open() { this.el.hidden = false; this.error.textContent = ""; }

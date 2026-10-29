@@ -197,7 +197,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
     room.paused = false;
     if (room.pauseTimer) clearTimeout(room.pauseTimer);
     io.to(room.code).emit("match:end", {
-      winnerTeam, score: { ...room.match.state.score }, reason,
+      winnerTeam,
+      winnerNames: winnerTeam ? room.players.filter((p) => p.team === winnerTeam).map((p) => p.name) : [],
+      score: { ...room.match.state.score }, reason,
     });
     emitRoom(room);
   };

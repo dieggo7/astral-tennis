@@ -248,12 +248,12 @@ export class Hud {
 
   showEnd(playerWon, score) {
     this.showMainMenu();
-    this.title.textContent = playerWon ? "VITÓRIA!" : "DERROTA";
     this.sub.textContent = `${score.player} × ${score.bot}`;
     const name = this.roster[this.selectedCharacterId]?.name || "Mago";
+    this.title.textContent = playerWon ? `${name.toUpperCase()} VENCEU!` : "RIVAL VENCEU";
     this.body.innerHTML = playerWon
-      ? `${name} domina a Arena Astral.`
-      : "O rival venceu este ponto. Tente de novo!";
+      ? `${name} venceu a partida na Arena Astral.`
+      : "O rival ganhou a partida. Tente de novo!";
     this.sub.hidden = false;
     this.body.hidden = false;
     this.cta.textContent = "Jogar de novo";

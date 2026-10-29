@@ -143,3 +143,15 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Ao iniciar, HUD e dicas usam os nomes e descricoes das habilidades do personagem escolhido no lobby; ao sair, a selecao local anterior e restaurada.
 - Teste de rede confirma que os buffers de habilidade sao acionados para host e convidado.
 - Verificado: `npm run networktest`, `npm run simtest`, `npm run build`.
+
+## Rodada 12 - nome do vencedor
+- Resultado online agora inclui nome(s) dos jogadores do time vencedor, exibidos na tela final/lobby.
+- A tela local identifica pelo nome do mago quem ganhou a partida.
+- Teste de rede força um resultado 2v2 e verifica os nomes do time vencedor.
+- Verificado: `npm run networktest`, `npm run simtest`, `npm run build`, `git diff --check`.
+
+## Rodada 13 - reduzir carga de entrada online
+- Cliente limita os pacotes de controle a 60 por segundo, alinhados ao tick do servidor, e agrupa movimento/mira mantendo cliques e habilidades de borda.
+- Fila temporaria e previsao sao limpas em desconexao/troca de vaga para impedir entrada velha depois de reconectar.
+- Teste valida limite de frequencia, movimento mais recente e preservacao de parry/habilidade agrupados.
+- Verificado: `npm run networktest`, `npm run simtest`, `npm run build`, `git diff --check`.

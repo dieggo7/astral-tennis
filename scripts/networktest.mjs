@@ -1,7 +1,26 @@
 import assert from "node:assert/strict";
 import { io as connect } from "socket.io-client";
 import { createGameServer } from "../server/index.js";
+import { NetworkClient } from "../src/network/NetworkClient.js";
 import { NetState } from "../src/network/NetState.js";
+
+globalThis.sessionStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const throttledClient = new NetworkClient("http://127.0.0.1:1");
+throttledClient.fighterId = "player";
+throttledClient.netState.setLocalFighter("player");
+throttledClient.socket.connected = true;
+const sentInputs = [];
+throttledClient.socket.emit = (eventName, payload) => { if (eventName === "input") sentInputs.push(payload); };
+const intent = { moveX: 1, moveZ: 0, aimX: 0, aimZ: -6, press: false, strongPress: false, dashPress: false, ultimatePress: false };
+throttledClient.sendInput(intent);
+throttledClient.sendInput({ ...intent, moveX: 0, press: true, dashPress: true });
+assert.equal(sentInputs.length, 1, "input packets are capped at 60 Hz");
+await new Promise((resolve) => setTimeout(resolve, 20));
+throttledClient.sendInput({ ...intent, moveX: -1 });
+assert.equal(sentInputs.length, 2);
+assert.equal(sentInputs[1].moveX, -1, "coalesced packets preserve the latest movement");
+assert.equal(sentInputs[1].swing, true, "coalesced packets preserve one-shot parry input");
+assert.equal(sentInputs[1].ability, true, "coalesced packets preserve one-shot ability input");
 
 const predictedState = new NetState({ interpolationDelay: 0 });
 predictedState.setMovementConfig({
@@ -151,8 +170,16 @@ try {
   const ended = event(a, "match:end", 2000);
   assert.equal((await request(a, "room:end")).ok, true);
   assert.equal((await ended).reason, "host-ended");
+  const winnerEnded = event(a, "match:end", 7000);
+  assert.equal((await request(a, "room:rematch")).ok, true);
+  await new Promise((resolve) => setTimeout(resolve, 3200));
+  const winningRoom = app.rooms.get(four.code);
+  winningRoom.match.state.winner = "player";
+  winningRoom.match.phase = "over";
+  const winnerResult = await winnerEnded;
+  assert.deepEqual(winnerResult.winnerNames, ["Four", "B"]);
 
-  console.log("networktest: salas, host, snapshots, controle independente dos dois jogadores, predicao/reconciliacao, primeiro saque, ponto, saque do rival, reconexao 1v1 e vagas/partida 2v2 passaram");
+  console.log("networktest: throttling/coalescencia de entrada, salas, snapshots, controles, predicao, saques, reconexao, 2v2 e vencedores passaram");
 } finally {
   for (const socket of clients) socket.disconnect();
   await app.close();

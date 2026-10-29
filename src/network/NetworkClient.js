@@ -2,6 +2,8 @@ import { io } from "socket.io-client";
 import { NetState } from "./NetState.js";
 
 const TOKEN_KEY = "astral-online-token";
+const INPUT_SEND_INTERVAL_MS = 1000 / 60;
+const EDGE_INPUTS = ["press", "strongPress", "dashPress", "ultimatePress"];
 
 export class NetworkClient {
   constructor(url = import.meta.env.VITE_SERVER_URL || "http://localhost:3001") {
@@ -11,6 +13,9 @@ export class NetworkClient {
     this.fighterId = null;
     this.room = null;
     this.seq = 0;
+    this.lastInputSentAt = 0;
+    this.pendingInput = null;
+    this.pendingInputDt = 0;
     this.listeners = new Map();
     this.pings = new Map();
     this.netState = new NetState();
@@ -29,7 +34,10 @@ export class NetworkClient {
 
   bindSocket() {
     this.socket.on("connect", () => this.dispatch("connect", {}));
-    this.socket.on("disconnect", (reason) => this.dispatch("disconnect", { reason }));
+    this.socket.on("disconnect", (reason) => {
+      this.clearPendingInput();
+      this.dispatch("disconnect", { reason });
+    });
     this.socket.on("connect_error", (error) => this.dispatch("connect_error", { reason: error.message }));
     for (const event of ["room:state", "room:error", "session:resumed", "match:start", "match:countdown", "match:paused", "match:resumed", "match:end", "event"]) {
       this.socket.on(event, (data) => {
@@ -43,6 +51,7 @@ export class NetworkClient {
             this.seq = Math.max(this.seq, ack);
           }
           this.netState.setLocalFighter(this.fighterId);
+          this.clearPendingInput();
         }
         this.dispatch(event, data);
       });
@@ -129,8 +138,10 @@ export class NetworkClient {
     }
     if (data.playerId) this.playerId = data.playerId;
     if (data.fighterId) {
+      const changedFighter = this.fighterId !== data.fighterId;
       this.fighterId = data.fighterId;
       this.netState.setLocalFighter(data.fighterId);
+      if (changedFighter) this.clearPendingInput();
     }
     if (data.room) this.room = data.room;
   }
@@ -142,6 +153,7 @@ export class NetworkClient {
   async endMatch() { return this.request("room:end"); }
   async leaveRoom() {
     try { await this.request("room:leave"); } finally {
+      this.clearPendingInput();
       this.room = null; this.fighterId = null; this.playerId = null;
       this.token = ""; this.socket.auth = { token: "" }; sessionStorage.removeItem(TOKEN_KEY);
       this.netState.setLocalFighter(null);
@@ -150,14 +162,37 @@ export class NetworkClient {
 
   sendInput(input, dt = 1 / 60) {
     if (!this.socket.connected || !this.fighterId) return;
+    if (!this.pendingInput) this.pendingInput = { ...input };
+    else {
+      for (const key of Object.keys(input)) {
+        this.pendingInput[key] = EDGE_INPUTS.includes(key)
+          ? !!this.pendingInput[key] || !!input[key]
+          : input[key];
+      }
+    }
+    this.pendingInputDt = Math.min(0.05, this.pendingInputDt + Math.max(0, dt));
+    const now = performance.now();
+    if (this.lastInputSentAt && now - this.lastInputSentAt < INPUT_SEND_INTERVAL_MS) return;
+
+    const next = this.pendingInput;
+    const sendDt = this.pendingInputDt || dt;
+    this.pendingInput = null;
+    this.pendingInputDt = 0;
+    this.lastInputSentAt = now;
     const seq = ++this.seq;
-    this.netState.predict(input, seq, dt);
+    this.netState.predict(next, seq, sendDt);
     this.socket.emit("input", {
-      seq, moveX: input.moveX, moveZ: input.moveZ,
-      aimX: input.aimX, aimZ: input.aimZ,
-      swing: input.press, strong: input.strongPress,
-      ability: input.dashPress, ultimate: input.ultimatePress,
+      seq, moveX: next.moveX, moveZ: next.moveZ,
+      aimX: next.aimX, aimZ: next.aimZ,
+      swing: next.press, strong: next.strongPress,
+      ability: next.dashPress, ultimate: next.ultimatePress,
     });
+  }
+
+  clearPendingInput() {
+    this.lastInputSentAt = 0;
+    this.pendingInput = null;
+    this.pendingInputDt = 0;
   }
 
   close() { this.socket.disconnect(); }

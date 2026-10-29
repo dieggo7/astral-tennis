@@ -202,8 +202,11 @@ export class Game {
       onMatchStart: (data) => this.beginOnlineMatch(data),
       onMatchEnd: (data) => {
         this.onlineStatus.hidden = false;
-        this.onlineStatus.textContent = data.winnerTeam
-          ? `Fim da partida · time ${data.winnerTeam} venceu · abrir lobby`
+        const winnerNames = Array.isArray(data.winnerNames) ? data.winnerNames.filter((name) => typeof name === "string" && name.trim()) : [];
+        this.onlineStatus.textContent = winnerNames.length
+          ? `Vencedor${winnerNames.length > 1 ? "es" : ""}: ${winnerNames.join(", ")} · abrir lobby`
+          : data.winnerTeam
+            ? `Fim da partida · time ${data.winnerTeam} venceu · abrir lobby`
           : "Partida encerrada · abrir lobby";
       },
       onLeave: () => this.leaveOnlineMatch(),
