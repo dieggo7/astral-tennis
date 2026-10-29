@@ -1,5 +1,5 @@
-import { clamp } from "../config/constants.js";
 import { teamOf } from "../sim/Rules.js";
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; // ~[-1,1]
 

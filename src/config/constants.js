@@ -1,5 +1,3 @@
-import * as THREE from "three";
-
 // ===================== TUNING: OS VALORES MAIS AJUSTADOS =====================
 // Balanceamento rápido. O resto das configurações abaixo deriva destes valores.
 export const TUNING = {
@@ -285,37 +283,3 @@ export const gameConfig = {
 
 export const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 export const lerp = (a, b, t) => a + (b - a) * t;
-
-/** Cor do orbe (THREE.Color) para uma razão de velocidade 0..1. */
-export function orbColor(ratio, orbConfig, target = new THREE.Color()) {
-  const stops = orbConfig.colorStops;
-  const r = clamp(ratio, 0, 1);
-  for (let i = 0; i < stops.length - 1; i += 1) {
-    const a = stops[i],
-      b = stops[i + 1];
-    if (r >= a.t && r <= b.t) {
-      const t = (r - a.t) / (b.t - a.t);
-      return target.set(a.color).lerp(new THREE.Color(b.color), t);
-    }
-  }
-  return target.set(stops[stops.length - 1].color);
-}
-
-/** Pontos que devem sempre caber na tela (usados para enquadrar a câmera). */
-export function getFitPoints(c, b) {
-  const hw = c.width / 2 + c.margin;
-  const hl = c.length / 2 + c.margin;
-  const pts = [];
-  [-1, 1].forEach((sx) =>
-    [-1, 1].forEach((sz) => {
-      pts.push(new THREE.Vector3(sx * hw, -0.9, sz * hl));
-      pts.push(new THREE.Vector3(sx * (hw - 0.4), 4.6, sz * (hl - 0.4))); // topo dos estandartes de canto
-      pts.push(new THREE.Vector3((sx * c.width) / 2, 3.2, (sz * c.length) / 2)); // altura do orbe nos cantos
-    }),
-  );
-  pts.push(
-    new THREE.Vector3(-b.pillarX, 5.6, 0),
-    new THREE.Vector3(b.pillarX, 5.6, 0),
-  );
-  return pts;
-}

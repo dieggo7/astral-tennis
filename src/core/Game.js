@@ -3,7 +3,8 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { getFitPoints, getModeConfig } from "../config/constants.js";
+import { getModeConfig } from "../config/constants.js";
+import { getFitPoints } from "../config/visual.js";
 import { Court } from "../arena/Court.js";
 import { LightBarrier } from "../arena/LightBarrier.js";
 import { Obelisks } from "../arena/Obelisks.js";
@@ -31,11 +32,13 @@ import {
   deviationDeg,
   clampToBox,
 } from "../sim/Aim.js";
-import { Match } from "../sim/Match.js";
+import { Match } from "../../shared/sim.js";
 import { InputManager } from "../input/InputManager.js";
 import { Character } from "../characters/Character.js";
 import { ROSTER, MVP_MATCHUP } from "../characters/roster.js";
 import { Hud } from "../ui/Hud.js";
+import { NetworkClient } from "../network/NetworkClient.js";
+import { RoomUI } from "../network/RoomUI.js";
 
 export class Game {
   constructor(root, mode = new URLSearchParams(location.search).get("mode") || "1v1") {
@@ -156,6 +159,7 @@ export class Game {
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.055;
+      ring.userData.teamRing = true;
       character.group.add(ring);
       if (id === "player") {
         const marker = new THREE.Mesh(
@@ -163,6 +167,7 @@ export class Game {
           new THREE.MeshBasicMaterial({ color: "#ffe079" }),
         );
         marker.position.set(0, 3.35, 0);
+        this.humanMarker = marker;
         character.group.add(marker);
       }
     }
@@ -175,6 +180,66 @@ export class Game {
       else url.searchParams.delete("reroll");
       location.assign(url.href);
     };
+    this.network = new NetworkClient();
+    this.online = false;
+    this.onlineEvents = [];
+    this.onlineStartAt = 0;
+    this.onlineStatus = document.createElement("div");
+    this.onlineStatus.className = "online-game-status";
+    this.onlineStatus.hidden = true;
+    this.root.appendChild(this.onlineStatus);
+    this.roomUI = new RoomUI(this.root, this.network, {
+      mode,
+      characters: ROSTER,
+      onModeMismatch: (nextMode, action) => {
+        if (action?.type === "create") sessionStorage.setItem("astral-online-pending", JSON.stringify(action));
+        const url = new URL(location.href);
+        url.searchParams.set("mode", nextMode);
+        location.assign(url.href);
+      },
+      onMatchStart: (data) => this.beginOnlineMatch(data),
+      onMatchEnd: (data) => {
+        this.onlineStatus.hidden = false;
+        this.onlineStatus.textContent = data.winnerTeam
+          ? `Fim da partida · time ${data.winnerTeam} venceu · abrir lobby`
+          : "Partida encerrada · abrir lobby";
+      },
+      onLeave: () => this.leaveOnlineMatch(),
+    });
+    this.hud.onOnlineRequested = () => {
+      this.roomUI.open();
+      if (this.network.token && !this.network.socket.connected) this.network.connect().catch((error) => this.roomUI.showError(error.message));
+    };
+    this.onlineStatus.addEventListener("click", () => {
+      if (this.network.room) this.roomUI.open();
+    });
+    this.network.on("event", (event) => this.onlineEvents.push(event));
+    this.network.on("ping", ({ rtt }) => { this.onlineStatus.dataset.ping = `${Math.round(rtt)} ms`; });
+    this.network.on("disconnect", () => {
+      if (this.online) this.onlineStatus.textContent = "Conexao interrompida · reconectando...";
+    });
+    this.network.on("session:resumed", ({ room }) => {
+      if (room?.mode !== this.mode) this.roomUI.onModeMismatch(room.mode, { type: "resume" });
+    });
+    const pendingOnline = sessionStorage.getItem("astral-online-pending");
+    if (pendingOnline) {
+      sessionStorage.removeItem("astral-online-pending");
+      try {
+        const pending = JSON.parse(pendingOnline);
+        if (pending.type === "create") {
+          this.roomUI.open();
+          this.roomUI.nameInput.value = pending.name || "";
+          this.roomUI.modeInput.value = mode;
+          queueMicrotask(() => this.roomUI.create());
+        } else if (pending.type === "resume") {
+          this.roomUI.open();
+          this.network.connect().catch((error) => this.roomUI.showError(error.message));
+        }
+      } catch { sessionStorage.removeItem("astral-online-pending"); }
+    } else if (this.network.token) {
+      this.roomUI.open();
+      this.network.connect().catch((error) => this.roomUI.showError(error.message));
+    }
     this.aimMarker = new AimMarker();
     this.bounceMarks = new BounceMarks();
     this.impactWaves = new ImpactWaves();
@@ -279,6 +344,114 @@ export class Game {
     );
     this.characters.player = this.playerCharacters[id];
     this.match.setPlayerCharacter(id);
+  }
+
+  beginOnlineMatch(data) {
+    this.online = true;
+    this.onlineStartAt = data.startsAt || Date.now();
+    const own = data.players?.find((p) => p.id === this.network.playerId);
+    if (own) {
+      this.network.acceptSession({ fighterId: own.fighterId });
+      this.localFighterId = own.fighterId;
+    }
+    this.match = new Match({
+      ...this.gameConfig,
+      networkMode: true,
+      twoVTwo: this.gameConfig.twoVTwo ? { ...this.gameConfig.twoVTwo, AI_USE_ABILITIES: false } : undefined,
+    });
+    this.match.setNetworkFighter(this.localFighterId || "player");
+    for (const player of data.players || []) this.match.setFighterCharacter(player.fighterId, player.characterId);
+    this.syncOnlineRoster(data.players || []);
+    this.match.start();
+    this.match.consumeEvents();
+    this.match.phase = "ready";
+    this.hud.hideOverlay();
+    this.onlineStatus.hidden = false;
+    this.onlineStatus.textContent = `Conectado · voce: ${this.localFighterId || "..."} · ping: -- ms`;
+  }
+
+  leaveOnlineMatch() {
+    this.roomUI.close();
+    this.online = false;
+    this.localFighterId = null;
+    this.onlineEvents = [];
+    this.onlineStatus.hidden = true;
+    this.match = new Match(this.gameConfig);
+    this.match.setPlayerCharacter(this.selectedCharacterId);
+    this.hud.overlay.classList.remove("hidden");
+    this.hud.el.classList.add("menu-open");
+    this.hud.showMainMenu();
+  }
+
+  syncOnlineRoster(players) {
+    Object.values(this.characters).forEach((character) => { character.group.visible = false; });
+    const used = new Set();
+    for (const player of players) {
+      const current = this.characters[player.fighterId];
+      let character = current?.def.id === player.characterId && !used.has(current)
+        ? current
+        : null;
+      if (!character) character = new Character(ROSTER[player.characterId], this.gameConfig.characters[player.characterId].speed);
+      used.add(character);
+      let ring = character.group.children.find((child) => child.userData.teamRing);
+      if (!ring) {
+        ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.88, 32), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.78, side: THREE.DoubleSide, depthWrite: false }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.055;
+        ring.userData.teamRing = true;
+        character.group.add(ring);
+      }
+      ring.material.color.set(player.team === "A" ? "#42e8ff" : "#ff4f87");
+      if (character.group.parent !== this.arena) this.arena.add(character.group);
+      character.group.visible = true;
+      this.characters[player.fighterId] = character;
+    }
+    if (this.humanMarker && this.localFighterId && this.characters[this.localFighterId]) {
+      this.humanMarker.parent?.remove(this.humanMarker);
+      this.characters[this.localFighterId].group.add(this.humanMarker);
+    }
+  }
+
+  applyOnlineSnapshot(snapshot) {
+    const match = this.match;
+    match.phase = snapshot.phase;
+    match.phaseTime = snapshot.phaseTime;
+    Object.assign(match.ball, snapshot.orb);
+    match.state.score = { player: snapshot.score.A, bot: snapshot.score.B };
+    match.state.server = snapshot.serverTeam === "A" ? "player" : "bot";
+    match.state.over = snapshot.phase === "over";
+    match.serve = { server: snapshot.server, box: snapshot.serveInfo?.box };
+    match.serveTiming = {
+      perfectAt: snapshot.serveInfo?.perfectAt || 0,
+      ringDuration: snapshot.serveInfo?.ringDuration || 1,
+    };
+    match.rules.state = snapshot.ruleState || (snapshot.phase === "serve" ? "serve" : "live");
+    match.rules.lastHitter = snapshot.lastHitter || null;
+    match.rules.bounces = snapshot.bounces || 0;
+    Object.assign(match.effects, snapshot.effects);
+    match.abilityCooldown = snapshot.abilityInfo?.abilityCooldown || 0;
+    match.ultimateCooldown = snapshot.abilityInfo?.ultimateCooldown || 0;
+    for (const remote of snapshot.players) {
+      const fighter = match.fighters[remote.fighterId];
+      if (!fighter) continue;
+      const { fighterId: _fighterId, team, swinging, ...state } = remote;
+      Object.assign(fighter, state);
+      fighter.team = team === "A" ? "player" : "bot";
+      fighter.parry.swinging = remote.swinging;
+      fighter.parry.connected = false;
+    }
+    const local = snapshot.players.find((fighter) => fighter.fighterId === this.localFighterId);
+    if (local) match.localFighterId = local.fighterId;
+    const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
+    if (scoreKey !== this.lastScoreKey) {
+      this.lastScoreKey = scoreKey;
+      this.hud.setScore(match.state.score, snapshot.server);
+    }
+    const serverNow = Date.now() + this.network.netState.serverOffset;
+    const seconds = Math.max(0, Math.ceil((this.onlineStartAt - serverNow) / 1000));
+    this.onlineStatus.textContent = seconds > 0
+      ? `Partida online · ${seconds} · voce: ${this.localFighterId}`
+      : `Partida online · voce: ${this.localFighterId} · ping: ${Math.round(this.network.netState.ping)} ms`;
   }
 
   /** Traduz eventos da simulação em feedback: shake, pulso da barreira, HUD, partículas, slow motion. */
@@ -696,14 +869,14 @@ export class Game {
     intent.dashPress ||= abilityRequests.dash;
     intent.ultimatePress ||= abilityRequests.ultimate;
     const match = this.match;
-    if (match.phase === "ready") {
+    if (!this.online && match.phase === "ready") {
       if (this.hud.consumeCtaRequest()) match.start();
       // Cliques no fundo e nos controles do menu não viram golpes no jogo.
       intent.press = false;
       intent.strongPress = false;
       intent.dashPress = false;
       intent.ultimatePress = false;
-    } else if (match.phase === "over") {
+    } else if (!this.online && match.phase === "over") {
       if (match.phaseTime > 0.8 && this.hud.consumeCtaRequest())
         match.restart();
       intent.press = false;
@@ -722,8 +895,21 @@ export class Game {
       this.hitStop -= dt;
       simDt = 0;
     }
-    match.update(simDt, intent);
-    this.handleEvents(match.consumeEvents());
+    if (this.online) {
+      const localId = this.localFighterId || this.network.fighterId;
+      if (localId && (match.fighters[localId]?.sign || 1) < 0) intent.moveZ *= -1;
+      if (intent.press) this.characters[localId]?.flashShield("normal");
+      this.network.sendInput(intent, dt);
+      const snapshot = this.network.netState.sample();
+      if (snapshot) this.applyOnlineSnapshot(snapshot);
+      const countdown = Math.max(0, Math.ceil((this.onlineStartAt - (Date.now() + this.network.netState.serverOffset)) / 1000));
+      if (countdown > 0) this.onlineStatus.textContent = `Partida online · ${countdown} · voce: ${localId || "..."}`;
+      const queued = this.onlineEvents.splice(0);
+      this.handleEvents(queued.filter((event) => event.type !== "matchOver"));
+    } else {
+      match.update(simDt, intent);
+      this.handleEvents(match.consumeEvents());
+    }
 
     // --- visual
     const vdt = dt * timeScale;
@@ -736,7 +922,7 @@ export class Game {
     }
     this.bounceMarks.update(vdt);
     this.dashTrailTimer -= vdt;
-    const player = match.fighters.player;
+    const player = match.fighters[this.localFighterId || "player"] || match.fighters.player;
     if (player.dashTimer > 0 && this.dashTrailTimer <= 0) {
       this.burst.emit(
         player.x - player.dashDirX * 0.35,
@@ -771,7 +957,7 @@ export class Game {
     this.abilityFields.update(match.effects, time);
 
     const sInfo = match.serveInfo;
-    const playerServing = sInfo.inServe && sInfo.server === "player";
+    const playerServing = sInfo.inServe && sInfo.server === (this.localFighterId || "player");
     this.serveBox.update(time, sInfo.box, sInfo.inServe);
     this.serveRing.update(
       time,
@@ -783,10 +969,11 @@ export class Game {
 
     // Mira: no saque, presa à caixa de saque; no rali, na metade do adversário.
     const A = this.gameConfig.aim;
-    const p = match.fighters.player;
+    const p = match.fighters[this.localFighterId || "player"] || match.fighters.player;
+    const localSign = p.sign || 1;
     let ax = intent.aimX,
-      az = Math.min(intent.aimZ, -0.8);
-    let region = rallyRegion(this.gameConfig.court, 1);
+      az = localSign > 0 ? Math.min(intent.aimZ, -0.8) : Math.max(intent.aimZ, 0.8);
+    let region = rallyRegion(this.gameConfig.court, localSign);
     let inside;
     if (playerServing) {
       [ax, az] = clampToBox(intent.aimX, intent.aimZ, sInfo.box);
@@ -808,12 +995,12 @@ export class Game {
     });
     this.hud.setAbilityStatus(
       match.abilityInfo,
-      ROSTER[this.selectedCharacterId],
+      ROSTER[player.characterId || this.selectedCharacterId],
     );
     this.otherUltTimer -= dt;
     if (this.mode === "2v2" && this.otherUltTimer <= 0) {
       this.otherUltTimer = 0.25;
-      this.hud.setOtherUltimates(match.fighters, ROSTER);
+      this.hud.setOtherUltimates(match.fighters, ROSTER, this.localFighterId || "player");
     }
     const scoreKey = `${match.state.score.player}-${match.state.score.bot}-${match.state.server}`;
     if (scoreKey !== this.lastScoreKey) {

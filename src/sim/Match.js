@@ -60,6 +60,7 @@ export class Match {
     this.botServe = null; // { at, quality } sorteado no início do saque do rival
     this.meteor = null;
     this.characterId = "ignis";
+    this.localFighterId = PLAYER;
     this.abilityCooldown = 0;
     this.ultimateCooldown = 0;
     this.effects = {
@@ -232,7 +233,7 @@ export class Match {
     this.fighters[PLAYER].buffer = 0;
     this.botServe = null;
     this.serveTiming = this.rollServeTiming();
-    if (this.serve.server !== PLAYER) {
+    if (this.serve.server !== PLAYER && !this.cfg.networkMode) {
       const q = this.cfg.bot.serveQuality,
         r = Math.random();
       const s = this.cfg.serve;
@@ -307,19 +308,20 @@ export class Match {
   }
 
   get abilityInfo() {
-    const f = this.fighters[PLAYER];
+    const f = this.fighters[this.localFighterId] || this.fighters[PLAYER];
+    const characterId = f.id === PLAYER ? this.characterId : f.characterId;
     const passiveStatus =
-      this.characterId === "ignis"
+      characterId === "ignis"
         ? `Combustão x${f.perfectStreak}`
-        : this.characterId === "glacia"
+        : characterId === "glacia"
           ? "Pés Frios · Parry ampliado"
-          : this.characterId === "zephyr"
+          : characterId === "zephyr"
             ? "Pés de Vento · Velocidade máxima"
             : "Fio Desencapado · Zigue-zague ativo";
     return {
       perfectStreak: f.perfectStreak,
-      abilityCooldown: this.abilityCooldown,
-      ultimateCooldown: this.ultimateCooldown,
+      abilityCooldown: f.id === PLAYER ? this.abilityCooldown : f.aiAbilityCooldown,
+      ultimateCooldown: f.id === PLAYER ? this.ultimateCooldown : f.aiUltimateCooldown,
       flameWindow: f.flameWindow,
       passiveStatus,
     };
@@ -352,6 +354,23 @@ export class Match {
     this.meteor = null;
   }
 
+  setFighterCharacter(fighterId, characterId) {
+    if (!this.fighters[fighterId] || !this.cfg.characters[characterId]) return false;
+    const fighter = this.fighters[fighterId];
+    fighter.characterId = characterId;
+    if (fighterId === PLAYER) this.characterId = characterId;
+    fighter.moveSpeed = this.cfg.characters[characterId].speed;
+    fighter.parry.cfg = { ...this.cfg.parry, perfectWindow: this.cfg.characters[characterId].perfectWindow };
+    fighter.parry.reset();
+    return true;
+  }
+
+  setNetworkFighter(fighterId) {
+    if (!this.fighters[fighterId]) return false;
+    this.localFighterId = fighterId;
+    return true;
+  }
+
   // ---------------------------------------------------------------- atualização
   /** dt variável do frame; intent do jogador = { moveX, moveZ, press, aimX, aimZ }. */
   update(dt, intent) {
@@ -373,6 +392,18 @@ export class Match {
     }
     if (humanIntent.dashPress) p.dashBuffer = 0.16;
     if (humanIntent.ultimatePress) p.meteorBuffer = 0.16;
+    if (this.cfg.networkMode) {
+      for (const [id, fighterInput] of Object.entries(this.intents)) {
+        const fighter = this.fighters[id];
+        if (!fighter || id === PLAYER) continue;
+        if (fighterInput.ability) fighter.dashBuffer = 0.16;
+        if (fighterInput.ultimate) fighter.meteorBuffer = 0.16;
+        if (fighterInput.press || fighterInput.swing) {
+          fighter.buffer = this.cfg.parry.bufferTime;
+          fighter.bufferType = fighterInput.strongPress || fighterInput.strong ? "strong" : "normal";
+        }
+      }
+    }
 
     this.acc += dt;
     while (this.acc >= STEP) {
@@ -481,7 +512,22 @@ export class Match {
         player.meteorBuffer = 0;
       } else player.meteorBuffer = Math.max(0, player.meteorBuffer - dt);
     }
-    if (this.teamSize === 2 && cfg.twoVTwo.AI_USE_ABILITIES && this.phase === "rally") {
+    if (this.cfg.networkMode) {
+      for (const [id, f] of Object.entries(this.fighters)) {
+        if (id === PLAYER) continue;
+        if (f.dashBuffer > 0 && this.phase === "rally" && f.aiAbilityCooldown <= 0) {
+          this.activateAbility(f);
+          f.aiAbilityCooldown = cfg.characters[f.characterId].abilityCooldown;
+          f.dashBuffer = 0;
+        } else f.dashBuffer = Math.max(0, f.dashBuffer - dt);
+        if (f.meteorBuffer > 0 && this.phase === "rally" && f.aiUltimateCooldown <= 0) {
+          this.activateUltimate(f);
+          f.aiUltimateCooldown = cfg.characters[f.characterId].ultimateCooldown;
+          f.meteorBuffer = 0;
+        } else f.meteorBuffer = Math.max(0, f.meteorBuffer - dt);
+      }
+    }
+    if (this.teamSize === 2 && !cfg.networkMode && cfg.twoVTwo.AI_USE_ABILITIES && this.phase === "rally") {
       for (const f of Object.values(this.fighters)) {
         if (f.id === PLAYER || this.rules.lastHitter === f.team) continue;
         const nearBall = Math.hypot(f.x - this.ball.x, f.z - this.ball.z) < cfg.twoVTwo.AI_ABILITY_RANGE;
@@ -517,7 +563,7 @@ export class Match {
       this.moveFighter(f, ai.moveX, ai.moveZ, dt, cfg.bot.speed, iceTraction);
       f.aimX = ai.aimX;
       f.aimZ = ai.aimZ;
-      if (ai.press && f.parry.press()) {
+      if (ai.press && this.serveSwingThisStep !== id && f.parry.press()) {
         f.swingType = ai.strongPress ? "strong" : "normal";
         this.startSwing(f);
       }
@@ -542,6 +588,7 @@ export class Match {
     this.faceTargets(player, bot, dt);
 
     // --- saque (minigame): o MESMO botão do Parry
+    this.serveSwingThisStep = null;
     if (this.phase === "serve") this.stepServe(dt, player);
 
     // --- golpes (Parry)
@@ -552,8 +599,8 @@ export class Match {
         this.startSwing(player);
       } else player.buffer -= dt;
     }
-    if (bi.press && bot.parry.press()) {
-      bot.swingType = this.teamSize === 2 && Math.random() < cfg.twoVTwo.AI_STRONG_SHOT_CHANCE ? "strong" : "normal";
+    if (bi.press && this.serveSwingThisStep !== BOT && bot.parry.press()) {
+      bot.swingType = bi.strongPress || (this.teamSize === 2 && Math.random() < cfg.twoVTwo.AI_STRONG_SHOT_CHANCE) ? "strong" : "normal";
       this.startSwing(bot);
     }
 
@@ -605,7 +652,18 @@ export class Match {
     }
     if (this.phaseTime < dt * 1.5) this.ringAnnounced = false;
 
-    if (sv.server === PLAYER) {
+    if (this.cfg.networkMode) {
+      const server = this.fighters[sv.server];
+      const input = this.intents[sv.server] || {};
+      if (this.phaseTime < s.startDelay) return;
+      if (input.press || input.swing) {
+        server.buffer = 0;
+        this.serveSwingThisStep = server.id;
+        const err = t - this.serveTiming.perfectAt;
+        const quality = Math.abs(err) <= s.perfectWindow ? "perfect" : Math.abs(err) <= s.goodWindow ? "good" : "bad";
+        this.doServe(server, quality, false);
+      } else if (this.phaseTime >= s.timeout) this.doServe(server, "bad", true);
+    } else if (sv.server === PLAYER) {
       if (this.phaseTime < s.startDelay) {
         player.buffer = 0;
         return;

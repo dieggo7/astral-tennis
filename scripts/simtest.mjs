@@ -2,7 +2,7 @@
 // 1) Partidas completas com um "jogador-robô" contra o bot (saque com minigame incluso).
 // 2) Precisão da mira: Parry perfeito acerta o alvo; rebatida ruim em mira extrema sai.
 import { gameConfig, getModeConfig } from "../src/config/constants.js";
-import { Match } from "../src/sim/Match.js";
+import { Match } from "../shared/sim.js";
 
 const clone = () => JSON.parse(JSON.stringify(gameConfig));
 const games = Number(process.argv[2] || 20);

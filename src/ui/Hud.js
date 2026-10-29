@@ -31,8 +31,9 @@ export class Hud {
         <div class="menu-actions" data-main-menu>
           <label class="mode-picker">Modo <select data-mode><option value="1v1">1v1</option><option value="2v2">2v2</option></select></label>
           <button class="hud-secondary" data-reroll type="button" hidden>Sortear equipes novamente</button>
+          <button class="hud-secondary" data-online type="button">Salas online</button>
           <button class="hud-secondary" data-open-characters type="button">Escolher personagem</button>
-          <button class="hud-cta" data-cta type="button">Jogar</button>
+          <button class="hud-cta" data-cta type="button">Jogar local</button>
         </div>
         <section class="character-select" data-character-select hidden aria-label="Seleção de personagem">
           <div class="character-options" data-character-options></div>
@@ -87,6 +88,7 @@ export class Hud {
       this.rerollButton.hidden = this.modeSelect.value !== "2v2";
     });
     this.onModeRequested = () => {};
+    this.onOnlineRequested = () => {};
     this.rerollButton.addEventListener("click", () => this.onModeRequested("2v2", true));
     this.selectedCharacterId = selectedCharacterId;
     this.onCharacterSelected = () => {};
@@ -105,6 +107,7 @@ export class Hud {
       }
       this.ctaRequested = true;
     });
+    q("[data-online]").addEventListener("click", () => this.onOnlineRequested());
     this.openCharactersButton.addEventListener("click", () =>
       this.showCharacterSelect(),
     );
@@ -201,9 +204,9 @@ export class Hud {
     this.sbEl.title = rivalServer ? `Saque de ${serverName}` : "";
   }
 
-  setOtherUltimates(fighters, roster) {
+  setOtherUltimates(fighters, roster, localFighterId = "player") {
     this.otherUlts.hidden = false;
-    this.otherUlts.innerHTML = ["A2", "bot", "B2"].map((id) => {
+    this.otherUlts.innerHTML = Object.keys(fighters).filter((id) => id !== localFighterId).map((id) => {
       const fighter = fighters[id];
       if (!fighter) return "";
       const ready = (fighter.aiUltimateCooldown || 0) <= 0;

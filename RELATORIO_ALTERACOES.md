@@ -103,3 +103,11 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - As dimensoes do modo 2v2 sao usadas na arena, camera, mira, fisica, regras e linha de saque. As linhas de simples permanecem desligadas.
 - Verificado: `npm run build` e `npm run simtest`, incluindo partida 2v2, ordem de saque, limites, devolucao por time e distancia entre parceiros.
 - Nao verificado visualmente em navegador: FPS com quatro magos, legibilidade de marcadores, enquadramento em 16:9/1:1 e sensacao do rali na quadra maior.
+## Rodada 6 - modo online por salas
+- Adicionado `shared/sim.js` como entrada unica para a simulacao pura; a fisica estava em `src/sim/BallPhysics.js` e `ChaosOrb.js` permanece visual. O modulo de configuracao da simulacao nao importa Three.js.
+- Criado servidor Socket.IO autoritativo em `server/index.js`: salas 1v1/2v2, codigos sem caracteres ambiguos, host, times, personagens, validacao de inputs, simulacao a 60 Hz, snapshots a 20 Hz, ping e limpeza de salas.
+- Criados `NetworkClient.js`, `NetState.js` e `RoomUI.js` para lobby, reconexao por token, ping, interpolacao com 100 ms, predicao de movimento e reconciliacao por sequencia.
+- O host inicia com vagas completas; ha revanche, migracao do host no lobby, pausa de 20 s para reconexao e W.O. no 1v1. No 2v2, apos 20 s a vaga ausente e liberada; a partida continua se o parceiro estiver online.
+- `npm run dev` inicia Vite e servidor. `npm run server`, `npm run networktest`, `.env.example` e README foram adicionados.
+- Verificado: build, simtest local, testes de sala/inicio/snapshot/reconexao/2v2, e inicializacao conjunta com respostas HTTP 200 e `/health` ativo.
+- Nao verificado visualmente em navegador: duas telas reais, FPS, sensacao de parry imediato, interpolacao sob latencia real e leitura do HUD online.

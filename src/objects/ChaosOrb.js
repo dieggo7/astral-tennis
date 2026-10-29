@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { clamp, orbColor } from "../config/constants.js";
+import { clamp } from "../config/constants.js";
+import { orbColor } from "../config/visual.js";
 import { getGlowTexture, getShadowTexture } from "../utils/textures.js";
 import { createSoftPoints } from "../utils/softPoints.js";
 

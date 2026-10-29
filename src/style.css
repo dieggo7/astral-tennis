@@ -283,6 +283,67 @@ canvas {
   color: #fff;
   font: inherit;
 }
+.room-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(5, 2, 20, .82);
+  backdrop-filter: blur(10px);
+  color: #f6f1ff;
+}
+.room-ui[hidden] { display: none; }
+.room-card {
+  position: relative;
+  width: min(560px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid rgba(108, 203, 255, .5);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(28, 16, 72, .98), rgba(9, 7, 34, .98));
+  box-shadow: 0 18px 70px rgba(0,0,0,.55), inset 0 0 34px rgba(108,203,255,.08);
+}
+.room-card h2 { margin: 0 0 4px; color: #ffdc83; letter-spacing: .04em; }
+.room-card label { display: grid; gap: 5px; margin: 12px 0; color: #d9d2f4; font-size: 13px; }
+.room-card input, .room-card select {
+  min-width: 0; padding: 10px 12px; border: 1px solid rgba(181,163,255,.4);
+  border-radius: 9px; background: rgba(6,5,28,.9); color: #fff; font: inherit;
+}
+.room-close { position:absolute; top:12px; right:14px; border:0; background:transparent; color:#ddd; font-size:28px; cursor:pointer; }
+.room-actions { display:flex; flex-wrap:wrap; align-items:end; gap:8px; margin-top:14px; }
+.room-actions button, .room-code-display button {
+  padding:10px 15px; border:1px solid rgba(255,201,77,.55); border-radius:9px;
+  background:rgba(73,45,132,.75); color:#fff2c8; font:inherit; font-weight:700; cursor:pointer;
+}
+.room-actions button:disabled { opacity:.4; cursor:not-allowed; }
+.room-code-entry { flex:1; margin:0 !important; }
+.room-code-display { display:flex; align-items:center; gap:12px; padding:10px 0; color:#d8d1f0; }
+.room-code-display b { color:#ffdc83; font-size:22px; letter-spacing:.2em; }
+.room-players { display:grid; gap:7px; }
+.room-player { display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:9px 11px; border:1px solid rgba(174,159,231,.18); border-radius:9px; background:rgba(255,255,255,.035); font-size:13px; }
+.room-player select { padding:5px 8px; }
+.room-player span:last-child { color:#a7f2d1; font-size:11px; }
+.room-character { margin-top:12px; }
+.room-error { min-height:1.2em; margin:12px 0 0; color:#ff999e; }
+.room-status { min-height:1.2em; color:#abdfff; }
+.online-game-status {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 12;
+  padding: 7px 11px;
+  border: 1px solid rgba(112, 205, 255, .45);
+  border-radius: 999px;
+  background: rgba(8, 5, 28, .78);
+  color: #dff8ff;
+  font-size: 11px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.online-game-status[hidden] { display:none; }
 .hud-others-ults {
   position: absolute;
   top: 88px;
