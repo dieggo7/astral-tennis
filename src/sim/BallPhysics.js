@@ -13,8 +13,12 @@ export class BallPhysics {
   }
 
   reset() {
-    this.x = 0; this.y = 2; this.z = 0;
-    this.vx = 0; this.vy = 0; this.vz = 0;
+    this.x = 0;
+    this.y = 2;
+    this.z = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.vz = 0;
     this.curveAccelX = 0;
     this.curveTime = 0;
     this.zigzagTime = 0;
@@ -22,8 +26,8 @@ export class BallPhysics {
     this.zigzagInterval = 0.09;
     this.zigzagDirection = 1;
     this.speed = this.cfg.baseSpeed; // velocidade "nominal" do rali (define a cor)
-    this.held = true;                // preso na mão de quem vai sacar
-    this.fallen = false;             // caiu no vácuo
+    this.held = true; // preso na mão de quem vai sacar
+    this.fallen = false; // caiu no vácuo
   }
 
   clone() {
@@ -60,7 +64,8 @@ export class BallPhysics {
     this.z += this.vz * dt;
 
     // Só existe chão sobre a laje (quadra + borda de pedra). Fora dela, o orbe cai no vácuo.
-    const onSlab = Math.abs(this.x) <= this.slabHalfW && Math.abs(this.z) <= this.slabHalfL;
+    const onSlab =
+      Math.abs(this.x) <= this.slabHalfW && Math.abs(this.z) <= this.slabHalfL;
     if (this.y <= this.r && this.vy < 0 && onSlab) {
       this.y = this.r;
       this.vy = Math.max(-this.vy * c.restitution, c.minBounceSpeed);

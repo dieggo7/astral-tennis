@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 /**
  * Céu de galáxia procedural: esfera invertida que acompanha a câmera.
@@ -138,7 +138,10 @@ export class Galaxy {
       `,
     });
 
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(config.radius ?? 500, 32, 24), this.material);
+    this.mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(config.radius ?? 500, 32, 24),
+      this.material,
+    );
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = -1000;
     this.group.add(this.mesh);

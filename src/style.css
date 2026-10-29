@@ -267,6 +267,44 @@ canvas {
   align-items: center;
   gap: 10px;
 }
+.mode-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #eee8ff;
+  font-weight: 700;
+}
+.mode-picker select {
+  pointer-events: auto;
+  padding: 9px 14px;
+  border: 1px solid rgba(190, 172, 255, 0.55);
+  border-radius: 999px;
+  background: #1b1046;
+  color: #fff;
+  font: inherit;
+}
+.hud-others-ults {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+.other-ult {
+  display: grid;
+  justify-items: center;
+  min-width: 30px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  background: rgba(8,5,28,.75);
+  color: #aaa;
+  font-size: 9px;
+}
+.other-ult b { color: #eee; font-size: 10px; }
+.other-ult.ready { border-color: rgba(255,201,77,.75); color: #ffdb76; }
 .hud-secondary {
   pointer-events: auto;
   min-width: 180px;

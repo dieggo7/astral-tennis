@@ -95,3 +95,11 @@ Demais parâmetros (bot, velocidades, anel do saque) ficam em `gameConfig`.
 - Parry/saque fácil ou difícil demais: PERFECT_PARRY_WINDOW e `serve.perfectWindow`/`goodWindow`.
 - Risco de mira forte/fraco: MAX_AIM_DEVIATION, AIM_RISK_CURVE.
 - Se as linhas de simples fizerem falta, `court.showSinglesLines: true`.
+
+## Rodada 5 - modo 2v2
+- Adicionados perfis de quadra e camera por modo; o seletor do menu carrega o modo escolhido e permite sortear novamente as equipes 2v2.
+- A simulacao recebe `intents[fighterId]`, cria quatro lutadores no modo 2v2, pontua por time, alterna saques A1 -> B1 -> A2 -> B2, escolhe o contato valido mais proximo e separa parceiros.
+- A IA controla os tres lutadores nao humanos, cede a bola ao jogador quando ele esta perto, e pode usar habilidades/ultimates conforme `TWO_V_TWO.AI_USE_ABILITIES`.
+- As dimensoes do modo 2v2 sao usadas na arena, camera, mira, fisica, regras e linha de saque. As linhas de simples permanecem desligadas.
+- Verificado: `npm run build` e `npm run simtest`, incluindo partida 2v2, ordem de saque, limites, devolucao por time e distancia entre parceiros.
+- Nao verificado visualmente em navegador: FPS com quatro magos, legibilidade de marcadores, enquadramento em 16:9/1:1 e sensacao do rali na quadra maior.

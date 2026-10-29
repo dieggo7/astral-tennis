@@ -9,20 +9,31 @@ const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
 /** Região do alvo no rali: a metade da quadra do adversário. */
 export function rallyRegion(court, hitterSign) {
-  return { cx: 0, cz: -hitterSign * court.length / 4, hx: court.width / 2, hz: court.length / 4 };
+  return {
+    cx: 0,
+    cz: (-hitterSign * court.length) / 4,
+    hx: court.width / 2,
+    hz: court.length / 4,
+  };
 }
 
 /** Região do alvo no saque: a caixa de saque diagonal. */
 export function boxRegion(box) {
   return {
-    cx: (box.xMin + box.xMax) / 2, cz: (box.zMin + box.zMax) / 2,
-    hx: (box.xMax - box.xMin) / 2, hz: (box.zMax - box.zMin) / 2,
+    cx: (box.xMin + box.xMax) / 2,
+    cz: (box.zMin + box.zMax) / 2,
+    hx: (box.xMax - box.xMin) / 2,
+    hz: (box.zMax - box.zMin) / 2,
   };
 }
 
 /** 0 no centro da região, 1 nas bordas (ou além). */
 export function extremity(ax, az, r) {
-  return clamp(Math.max(Math.abs(ax - r.cx) / r.hx, Math.abs(az - r.cz) / r.hz), 0, 1);
+  return clamp(
+    Math.max(Math.abs(ax - r.cx) / r.hx, Math.abs(az - r.cz) / r.hz),
+    0,
+    1,
+  );
 }
 
 /** Curva de risco por extremidade: riskBase no centro, 1 nas linhas. */
@@ -33,7 +44,7 @@ export function riskAt(ax, az, region, A) {
 
 /** 0 para Parry perfeito; senão cresce com o erro de timing (em s) até 1. */
 export function timingFactor(errorSeconds, quality, A) {
-  if (quality === 'perfect') return 0;
+  if (quality === "perfect") return 0;
   return clamp(Math.abs(errorSeconds) / A.timingErrorMax, 0.2, 1);
 }
 

@@ -37,7 +37,7 @@ export class Parry {
         this.swinging = false;
         const whiff = !this.connected;
         this.cooldown = whiff ? this.cfg.cooldownMiss : this.cfg.cooldownHit;
-        return whiff ? 'whiff' : null;
+        return whiff ? "whiff" : null;
       }
     } else if (this.cooldown > 0) {
       this.cooldown = Math.max(0, this.cooldown - dt);
@@ -53,6 +53,9 @@ export class Parry {
   connect() {
     const error = this.t - this.cfg.sweetTime;
     this.connected = true;
-    return { quality: Math.abs(error) <= this.cfg.perfectWindow ? 'perfect' : 'normal', error };
+    return {
+      quality: Math.abs(error) <= this.cfg.perfectWindow ? "perfect" : "normal",
+      error,
+    };
   }
 }

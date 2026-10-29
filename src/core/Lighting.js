@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 export class LightingRig {
   constructor(config) {
@@ -6,15 +6,24 @@ export class LightingRig {
     this.group = new THREE.Group();
     this.baseOrbIntensity = e.orbPointIntensity;
 
-    this.group.add(new THREE.HemisphereLight(0x9a8cff, 0x1a1050, e.hemiIntensity));
+    this.group.add(
+      new THREE.HemisphereLight(0x9a8cff, 0x1a1050, e.hemiIntensity),
+    );
 
-    this.mainLight = new THREE.DirectionalLight(0xbcc8ff, e.directionalIntensity);
+    this.mainLight = new THREE.DirectionalLight(
+      0xbcc8ff,
+      e.directionalIntensity,
+    );
     this.mainLight.position.set(-7, 15, 11);
     this.mainLight.castShadow = e.shadowMapEnabled;
     const s = this.mainLight.shadow;
     s.mapSize.set(2048, 2048);
-    s.camera.left = -18; s.camera.right = 18; s.camera.top = 18; s.camera.bottom = -18;
-    s.camera.near = 1; s.camera.far = 50;
+    s.camera.left = -18;
+    s.camera.right = 18;
+    s.camera.top = 18;
+    s.camera.bottom = -18;
+    s.camera.near = 1;
+    s.camera.far = 50;
     s.bias = -0.0005;
     s.normalBias = 0.03;
     this.group.add(this.mainLight);
@@ -25,7 +34,12 @@ export class LightingRig {
     rimCyan.position.set(-12, 7, -14);
     this.group.add(rimMagenta, rimCyan);
 
-    this.orbLight = new THREE.PointLight(0x3da5ff, e.orbPointIntensity, e.orbDistance, e.orbDecay);
+    this.orbLight = new THREE.PointLight(
+      0x3da5ff,
+      e.orbPointIntensity,
+      e.orbDistance,
+      e.orbDecay,
+    );
     this.group.add(this.orbLight);
   }
 

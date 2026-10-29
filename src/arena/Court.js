@@ -346,26 +346,35 @@ export class Court {
   }
 
   buildGoldLines(c) {
-    const W = c.width, L = c.length;
-    const hx = W / 2, hz = L / 2;
-    const single = hx - 1.5, service = c.serviceLine ?? 6.2;
-    const sw = c.showSinglesLines ? single : hx;   // largura das caixas de saque
+    const W = c.width,
+      L = c.length;
+    const hx = W / 2,
+      hz = L / 2;
+    const single = hx - 1.5,
+      service = c.serviceLine ?? 6.2;
+    const sw = c.showSinglesLines ? single : hx; // largura das caixas de saque
 
     // Linhas que DEFINEM dentro/fora (bem fortes, brilham no bloom) e linhas internas (mais discretas).
-    const boundary = [], inner = [], glow = [];
+    const boundary = [],
+      inner = [],
+      glow = [];
     const addTo = (list, cx, cz, sx, sz, h, glowPad) => {
       const g = new THREE.BoxGeometry(sx, h, sz);
       g.translate(cx, h / 2, cz);
       list.push(g);
-      const gg = new THREE.BoxGeometry(sx + (sx > sz ? 0 : glowPad), 0.01, sz + (sz > sx ? 0 : glowPad));
+      const gg = new THREE.BoxGeometry(
+        sx + (sx > sz ? 0 : glowPad),
+        0.01,
+        sz + (sz > sx ? 0 : glowPad),
+      );
       gg.translate(cx, 0.008, cz);
       glow.push(gg);
     };
-    const bw = 0.2;                                 // espessura das linhas de limite
+    const bw = 0.2; // espessura das linhas de limite
     const iw = 0.14;
-    addTo(boundary, 0, -hz, W + bw, bw, 0.05, 0.6);   // linhas de fundo
+    addTo(boundary, 0, -hz, W + bw, bw, 0.05, 0.6); // linhas de fundo
     addTo(boundary, 0, hz, W + bw, bw, 0.05, 0.6);
-    addTo(boundary, -hx, 0, bw, L, 0.05, 0.6);        // laterais
+    addTo(boundary, -hx, 0, bw, L, 0.05, 0.6); // laterais
     addTo(boundary, hx, 0, bw, L, 0.05, 0.6);
     if (c.showSinglesLines) {
       addTo(inner, -single, 0, iw, L, 0.04, 0.4);
@@ -373,29 +382,39 @@ export class Court {
     }
     addTo(inner, 0, -service, sw * 2, iw, 0.04, 0.4); // linhas de saque
     addTo(inner, 0, service, sw * 2, iw, 0.04, 0.4);
-    addTo(inner, 0, 0, iw, service * 2, 0.04, 0.4);   // saque central
-    addTo(inner, 0, -hz + 0.35, iw, 0.7, 0.04, 0.4);  // marcas centrais
+    addTo(inner, 0, 0, iw, service * 2, 0.04, 0.4); // saque central
+    addTo(inner, 0, -hz + 0.35, iw, 0.7, 0.04, 0.4); // marcas centrais
     addTo(inner, 0, hz - 0.35, iw, 0.7, 0.04, 0.4);
-    addTo(inner, 0, 0, W + iw, 0.22, 0.04, 0.4);      // linha da rede (no chão)
+    addTo(inner, 0, 0, W + iw, 0.22, 0.04, 0.4); // linha da rede (no chão)
 
     const boundaryMat = new THREE.MeshStandardMaterial({
-      color: this.config.gold, emissive: new THREE.Color(this.config.gold), emissiveIntensity: c.lineBrightness ?? 0.8,
-      metalness: 0.5, roughness: 0.3,
+      color: this.config.gold,
+      emissive: new THREE.Color(this.config.gold),
+      emissiveIntensity: c.lineBrightness ?? 0.8,
+      metalness: 0.5,
+      roughness: 0.3,
     });
     this.boundaryMat = boundaryMat;
     const lines = new THREE.Mesh(mergeGeometries(boundary), boundaryMat);
     lines.receiveShadow = true;
     this.group.add(lines);
     const innerMat = new THREE.MeshStandardMaterial({
-      color: this.config.gold, emissive: new THREE.Color(this.config.gold), emissiveIntensity: c.lineInnerBrightness ?? 0.35,
-      metalness: 0.4, roughness: 0.4,
+      color: this.config.gold,
+      emissive: new THREE.Color(this.config.gold),
+      emissiveIntensity: c.lineInnerBrightness ?? 0.35,
+      metalness: 0.4,
+      roughness: 0.4,
     });
     const inLines = new THREE.Mesh(mergeGeometries(inner), innerMat);
     inLines.receiveShadow = true;
     this.group.add(inLines);
 
     const glowMat = new THREE.MeshBasicMaterial({
-      color: this.config.gold, transparent: true, opacity: c.lineGlow ?? 0.05, blending: THREE.AdditiveBlending, depthWrite: false,
+      color: this.config.gold,
+      transparent: true,
+      opacity: c.lineGlow ?? 0.05,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
     this.group.add(new THREE.Mesh(mergeGeometries(glow), glowMat));
   }

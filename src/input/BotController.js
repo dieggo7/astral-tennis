@@ -1,4 +1,5 @@
-import { clamp } from '../config/constants.js';
+import { clamp } from "../config/constants.js";
+import { teamOf } from "../sim/Rules.js";
 
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; // ~[-1,1]
 
@@ -26,12 +27,16 @@ export class BotController {
     this.pressed = false;
   }
 
-  pickAim(player) {
+  pickAim(player, sign = -1) {
     const c = this.cfg;
     const maxX = this.halfW - c.aimMargin;
     return {
-      x: clamp(-player.x * 0.7 + (Math.random() * 2 - 1) * c.aimSpread, -maxX, maxX),
-      z: 3 + Math.random() * 7,
+      x: clamp(
+        -player.x * 0.7 + (Math.random() * 2 - 1) * c.aimSpread,
+        -maxX,
+        maxX,
+      ),
+      z: -sign * (3 + Math.random() * 7),
     };
   }
 
@@ -45,7 +50,8 @@ export class BotController {
   }
 
   moveToward(out, bot, tx, tz, k = 1) {
-    const dx = tx - bot.x, dz = tz - bot.z;
+    const dx = tx - bot.x,
+      dz = tz - bot.z;
     const d = Math.hypot(dx, dz);
     if (d < 0.05) return;
     const s = Math.min(1, d / 0.5) * k;
@@ -53,10 +59,16 @@ export class BotController {
     out.moveZ = (dz / d) * s;
   }
 
-  think(dt, { bot, player, ball, rules, home }) {
+  think(dt, { bot, player, ball, rules, home, team = "bot" }) {
     const c = this.cfg;
-    const out = { moveX: 0, moveZ: 0, press: false, aimX: bot.aimX, aimZ: bot.aimZ };
-    const live = rules.state === 'live' && rules.lastHitter === 'player';
+    const out = {
+      moveX: 0,
+      moveZ: 0,
+      press: false,
+      aimX: bot.aimX,
+      aimZ: bot.aimZ,
+    };
+    const live = rules.state === "live" && teamOf(rules.lastHitter) !== teamOf(team);
 
     if (!live) {
       this.incoming = false;
@@ -65,7 +77,8 @@ export class BotController {
       return out;
     }
 
-    if (!this.incoming) {            // bola nova vindo
+    if (!this.incoming) {
+      // bola nova vindo
       this.incoming = true;
       this.reaction = c.reaction * (0.8 + Math.random() * 0.5);
       this.willSwing = Math.random() >= c.missChance;
@@ -82,7 +95,8 @@ export class BotController {
       this.plan = 0.1;
       this.replan(bot, ball, rules);
     }
-    if (!this.target) {              // vai sair: deixa passar
+    if (!this.target) {
+      // vai sair: deixa passar
       this.moveToward(out, bot, home[0], home[1], 0.5);
       return out;
     }
@@ -90,14 +104,21 @@ export class BotController {
     this.moveToward(out, bot, this.target.x, this.target.z);
 
     // Clique: quando o orbe está a (alcance + velocidade * tempo ideal) de distância.
-    if (this.willSwing && !this.pressed && ball.z < -0.3) {
-      const rx = bot.x, ry = 1.4, rz = bot.z + 0.5;
-      const dx = ball.x - rx, dy = ball.y - ry, dz = ball.z - rz;
+    if (this.willSwing && !this.pressed && Math.sign(ball.z) === bot.sign) {
+      const rx = bot.x,
+        ry = 1.4,
+        rz = bot.z - bot.sign * 0.5;
+      const dx = ball.x - rx,
+        dy = ball.y - ry,
+        dz = ball.z - rz;
       const dist = Math.hypot(dx, dy, dz);
       const sp = Math.hypot(ball.vx, ball.vy, ball.vz);
       const approaching = dx * ball.vx + dy * ball.vy + dz * ball.vz < 0;
-      if (approaching && dist <= this.parry.reach + sp * (this.parry.sweetTime + this.jitter)) {
-        const aim = this.pickAim(player);
+      if (
+        approaching &&
+        dist <= this.parry.reach + sp * (this.parry.sweetTime + this.jitter)
+      ) {
+        const aim = this.pickAim(player, bot.sign);
         out.press = true;
         out.aimX = aim.x;
         out.aimZ = aim.z;
@@ -110,13 +131,14 @@ export class BotController {
   replan(bot, ball, rules) {
     const c = this.cfg;
     const samples = ball.predict(2.5);
-    const tolW = this.halfW + 0.3, tolL = this.halfL + 0.3;
+    const tolW = this.halfW + 0.3,
+      tolL = this.halfL + 0.3;
     let from = 0;
 
     if (rules.bounces === 0) {
       const fb = samples.find((s) => s.bounce);
-      if (fb && (Math.abs(fb.x) > tolW || Math.abs(fb.z) > tolL || fb.z > 0)) {
-        this.target = null;          // vai cair fora/na rede: não corre atrás
+      if (fb && (Math.abs(fb.x) > tolW || Math.abs(fb.z) > tolL || Math.sign(fb.z) !== bot.sign)) {
+        this.target = null; // vai cair fora/na rede: não corre atrás
         return;
       }
       from = fb ? samples.indexOf(fb) + 6 : 0; // um pouco depois do quique
@@ -126,18 +148,26 @@ export class BotController {
     let best = null;
     for (let i = from; i < samples.length; i += 1) {
       const s = samples[i];
-      if (s.z > -1 || s.z < -(this.halfL - 0.3) || Math.abs(s.x) > this.halfW) continue;
+      if (Math.sign(s.z) !== bot.sign || Math.abs(s.z) < 1 || Math.abs(s.z) > this.halfL - 0.3 || Math.abs(s.x) > this.halfW)
+        continue;
       if (s.y < 0.5 || s.y > 2.4) continue;
       const need = Math.hypot(s.x - bot.x, s.z - bot.z) - reach * 0.7;
       const can = c.speed * Math.max(0, s.t - 0.05);
-      best = s;                       // guarda o último candidato como plano B
-      if (need <= can) { best = s; break; }
+      best = s; // guarda o último candidato como plano B
+      if (need <= can) {
+        best = s;
+        break;
+      }
     }
     this.target = best
       ? {
-        x: clamp(best.x + gauss() * c.positionError, -this.halfW + 0.3, this.halfW - 0.3),
-        z: clamp(best.z - 0.5, -(this.halfL - 0.3), -1.2),
-      }
+          x: clamp(
+            best.x + gauss() * c.positionError,
+            -this.halfW + 0.3,
+            this.halfW - 0.3,
+          ),
+          z: clamp(best.z - bot.sign * 0.5, bot.sign > 0 ? 1.2 : -(this.halfL - 0.3), bot.sign > 0 ? this.halfL - 0.3 : -1.2),
+        }
       : null;
   }
 }

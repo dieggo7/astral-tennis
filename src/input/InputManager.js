@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 /**
  * Teclado + mouse -> intents (dados puros) para a simulação.
@@ -7,8 +7,10 @@ import * as THREE from 'three';
  *  - Mirar: posição do cursor sobre a quadra
  */
 export class InputManager {
-  constructor(domElement) {
+  constructor(domElement, court = { width: 18, length: 30 }) {
     this.dom = domElement;
+    this.halfW = court.width / 2;
+    this.halfL = court.length / 2;
     this.keys = new Set();
     this.pressQueued = false;
     this.strongPressQueued = false;
@@ -20,24 +22,32 @@ export class InputManager {
     this.hit = new THREE.Vector3();
     this.aim = { x: 0, z: -6 };
 
-    window.addEventListener('keydown', (e) => {
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+    window.addEventListener("keydown", (e) => {
+      if (
+        ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+          e.code,
+        )
+      )
+        e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
-      if (e.code === 'Space' || e.code === 'Enter') this.pressQueued = true;
-      if (e.code === 'KeyE') this.dashQueued = true;
-      if (e.code === 'KeyQ') this.ultimateQueued = true;
+      if (e.code === "Space" || e.code === "Enter") this.pressQueued = true;
+      if (e.code === "KeyE") this.dashQueued = true;
+      if (e.code === "KeyQ") this.ultimateQueued = true;
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
-    window.addEventListener('pointermove', (e) => {
-      this.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    window.addEventListener("keyup", (e) => this.keys.delete(e.code));
+    window.addEventListener("blur", () => this.keys.clear());
+    window.addEventListener("pointermove", (e) => {
+      this.ndc.set(
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1,
+      );
     });
-    window.addEventListener('pointerdown', (e) => {
+    window.addEventListener("pointerdown", (e) => {
       if (e.button === 0) this.pressQueued = true;
       if (e.button === 2) this.strongPressQueued = true;
     });
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
   /** Ponto do cursor sobre o plano da quadra (espaço local da arena). */
@@ -50,8 +60,8 @@ export class InputManager {
     if (this.raycaster.ray.intersectPlane(this.plane, this.hit)) {
       arena.worldToLocal(this.hit);
       // limita a mira a um pouco além das linhas (dá para errar, mas não para mirar no infinito)
-      this.aim.x = Math.max(-9, Math.min(9, this.hit.x));
-      this.aim.z = Math.max(-15, Math.min(15, this.hit.z));
+      this.aim.x = Math.max(-this.halfW - 1.5, Math.min(this.halfW + 1.5, this.hit.x));
+      this.aim.z = Math.max(-this.halfL - 1.5, Math.min(this.halfL + 1.5, this.hit.z));
     } else {
       this.aim.x = origin.x + dir.x * 10;
     }
@@ -61,8 +71,12 @@ export class InputManager {
   /** Intent do frame. O clique é "de borda": só vale uma vez. */
   read(camera, arena) {
     const k = this.keys;
-    const moveX = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
-    const moveZ = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
+    const moveX =
+      (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) -
+      (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
+    const moveZ =
+      (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0) -
+      (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0);
     const aim = this.updateAim(camera, arena);
     const press = this.pressQueued;
     const strongPress = this.strongPressQueued;
@@ -72,6 +86,15 @@ export class InputManager {
     this.strongPressQueued = false;
     this.dashQueued = false;
     this.ultimateQueued = false;
-    return { moveX, moveZ, press, strongPress, dashPress, ultimatePress, aimX: aim.x, aimZ: aim.z };
+    return {
+      moveX,
+      moveZ,
+      press,
+      strongPress,
+      dashPress,
+      ultimatePress,
+      aimX: aim.x,
+      aimZ: aim.z,
+    };
   }
 }

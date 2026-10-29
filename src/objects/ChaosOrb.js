@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { clamp, orbColor } from '../config/constants.js';
-import { getGlowTexture, getShadowTexture } from '../utils/textures.js';
-import { createSoftPoints } from '../utils/softPoints.js';
+import * as THREE from "three";
+import { clamp, orbColor } from "../config/constants.js";
+import { getGlowTexture, getShadowTexture } from "../utils/textures.js";
+import { createSoftPoints } from "../utils/softPoints.js";
 
 const TRAIL_LEN = 40;
 
@@ -14,37 +14,80 @@ export class ChaosOrb {
   constructor(config, courtConfig) {
     this.config = config;
     this.courtConfig = courtConfig;
-    this.group = new THREE.Group();   // acompanha a posição do orbe
-    this.shadow = null;               // sombra na quadra (adicionada separadamente)
+    this.group = new THREE.Group(); // acompanha a posição do orbe
+    this.shadow = null; // sombra na quadra (adicionada separadamente)
     this.position = new THREE.Vector3();
-    this.color = new THREE.Color('#3da5ff');
+    this.color = new THREE.Color("#3da5ff");
     this.speed = config.baseSpeed;
     this.speedRatio = 0;
     this.flash = 0;
     this.accum = 0;
 
     const r = config.radius;
-    this.coreMat = new THREE.MeshStandardMaterial({ color: '#1a1030', emissive: '#3da5ff', emissiveIntensity: 1.6, roughness: 0.2 });
-    this.core = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), this.coreMat);
+    this.coreMat = new THREE.MeshStandardMaterial({
+      color: "#1a1030",
+      emissive: "#3da5ff",
+      emissiveIntensity: 1.6,
+      roughness: 0.2,
+    });
+    this.core = new THREE.Mesh(
+      new THREE.SphereGeometry(r, 32, 24),
+      this.coreMat,
+    );
     this.group.add(this.core);
 
-    this.rimMat = new THREE.MeshBasicMaterial({ color: '#3da5ff', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false });
-    this.group.add(new THREE.Mesh(new THREE.SphereGeometry(r * 1.2, 24, 16), this.rimMat));
+    this.rimMat = new THREE.MeshBasicMaterial({
+      color: "#3da5ff",
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    this.group.add(
+      new THREE.Mesh(new THREE.SphereGeometry(r * 1.2, 24, 16), this.rimMat),
+    );
 
-    this.haloMat = new THREE.SpriteMaterial({ map: getGlowTexture(), color: '#3da5ff', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.haloMat = new THREE.SpriteMaterial({
+      map: getGlowTexture(),
+      color: "#3da5ff",
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
     this.halo = new THREE.Sprite(this.haloMat);
     this.halo.scale.setScalar(r * 9);
     this.group.add(this.halo);
 
-    this.ringMat = new THREE.MeshBasicMaterial({ color: '#3da5ff', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
-    this.ringA = new THREE.Mesh(new THREE.TorusGeometry(r * 1.55, r * 0.045, 8, 48), this.ringMat);
-    this.ringB = new THREE.Mesh(new THREE.TorusGeometry(r * 1.8, r * 0.035, 8, 48), this.ringMat);
+    this.ringMat = new THREE.MeshBasicMaterial({
+      color: "#3da5ff",
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.ringA = new THREE.Mesh(
+      new THREE.TorusGeometry(r * 1.55, r * 0.045, 8, 48),
+      this.ringMat,
+    );
+    this.ringB = new THREE.Mesh(
+      new THREE.TorusGeometry(r * 1.8, r * 0.035, 8, 48),
+      this.ringMat,
+    );
     this.group.add(this.ringA, this.ringB);
 
     // Sombra circular projetada na quadra
     this.shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map: getShadowTexture(), color: '#02040f', transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
+      new THREE.MeshBasicMaterial({
+        map: getShadowTexture(),
+        color: "#02040f",
+        transparent: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      }),
     );
     this.shadow.renderOrder = 2;
 
@@ -52,7 +95,14 @@ export class ChaosOrb {
     const positions = new Float32Array(TRAIL_LEN * 3);
     const colors = new Float32Array(TRAIL_LEN * 3);
     const sizes = new Float32Array(TRAIL_LEN).fill(r);
-    this.trail = createSoftPoints({ positions, colors, sizes, opacity: 1, twinkle: 0, sway: 0 });
+    this.trail = createSoftPoints({
+      positions,
+      colors,
+      sizes,
+      opacity: 1,
+      twinkle: 0,
+      sway: 0,
+    });
     this.trailPoints = this.trail.points;
     this.history = Array.from({ length: TRAIL_LEN }, () => new THREE.Vector3());
 
@@ -73,7 +123,12 @@ export class ChaosOrb {
   }
 
   updateRatio() {
-    this.speedRatio = clamp((this.speed - this.config.baseSpeed) / (this.config.maxSpeed - this.config.baseSpeed), 0, 1);
+    this.speedRatio = clamp(
+      (this.speed - this.config.baseSpeed) /
+        (this.config.maxSpeed - this.config.baseSpeed),
+      0,
+      1,
+    );
   }
 
   /** Sincroniza com o estado da física (BallPhysics) e atualiza o visual. */
@@ -82,7 +137,8 @@ export class ChaosOrb {
     const r = c.radius;
 
     const h0 = this.history[0];
-    const jump = (ball.x - h0.x) ** 2 + (ball.y - h0.y) ** 2 + (ball.z - h0.z) ** 2;
+    const jump =
+      (ball.x - h0.x) ** 2 + (ball.y - h0.y) ** 2 + (ball.z - h0.z) ** 2;
     if (jump > 36) this.history.forEach((h) => h.set(ball.x, ball.y, ball.z)); // salto (novo saque): sem rastro esticado
     this.position.set(ball.x, ball.y, ball.z);
     this.speed = ball.speed;
@@ -127,6 +183,10 @@ export class ChaosOrb {
       size.setX(i, r * (0.45 + 1.3 * k));
       alpha.setX(i, k * k * (0.5 + this.speedRatio * 0.5));
     }
-    pos.needsUpdate = col.needsUpdate = size.needsUpdate = alpha.needsUpdate = true;
+    pos.needsUpdate =
+      col.needsUpdate =
+      size.needsUpdate =
+      alpha.needsUpdate =
+        true;
   }
 }

@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 /**
  * Câmera arcade fixa. A distância é calculada automaticamente para a quadra
@@ -9,7 +9,12 @@ export class CameraRig {
   constructor(config, fitPoints) {
     this.config = config;
     this.fitPoints = fitPoints;
-    this.camera = new THREE.PerspectiveCamera(config.fov, 16 / 9, config.near, config.far);
+    this.camera = new THREE.PerspectiveCamera(
+      config.fov,
+      16 / 9,
+      config.near,
+      config.far,
+    );
     this.pose = this.computePose(16 / 9);
     this.camera.position.copy(this.pose.position);
     this.camera.lookAt(this.pose.target);
@@ -42,10 +47,12 @@ export class CameraRig {
           return Math.abs(tmp.x) <= lim && Math.abs(tmp.y) <= lim;
         });
       };
-      let lo = 8, hi = 250;
+      let lo = 8,
+        hi = 250;
       for (let i = 0; i < 28; i += 1) {
         const mid = (lo + hi) / 2;
-        if (fits(mid)) hi = mid; else lo = mid;
+        if (fits(mid)) hi = mid;
+        else lo = mid;
       }
       return hi;
     };
@@ -53,7 +60,11 @@ export class CameraRig {
     // Procura o ponto de mira que exige a menor distância (quadra bem centralizada).
     let best = null;
     for (let tz = -4; tz <= 4.01; tz += 0.5) {
-      const target = new THREE.Vector3(cfg.target[0], cfg.target[1], cfg.target[2] + tz);
+      const target = new THREE.Vector3(
+        cfg.target[0],
+        cfg.target[1],
+        cfg.target[2] + tz,
+      );
       const d = solve(target);
       if (!best || d < best.d) best = { d, target };
     }
