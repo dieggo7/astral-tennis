@@ -447,7 +447,7 @@ export class Game {
     Object.assign(match.ball, snapshot.orb);
     match.state.score = { player: snapshot.score.A, bot: snapshot.score.B };
     match.state.server = snapshot.server || null;
-    match.state.over = snapshot.phase === "over";
+    match.state.winner = snapshot.winner || null;
     match.serve = { server: snapshot.server, box: snapshot.serveInfo?.box };
     match.serveTiming = {
       perfectAt: snapshot.serveInfo?.perfectAt || 0,

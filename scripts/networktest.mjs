@@ -25,6 +25,23 @@ function event(socket, name, timeoutMs = 7000) {
     socket.once(name, done);
   });
 }
+function eventWhere(socket, name, predicate, timeoutMs = 9000, label = name) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(name, onEvent);
+      const room = [...app.rooms.values()][0];
+      const state = room ? `${room.status}/${room.match?.phase} t=${room.match?.phaseTime.toFixed(2)} server=${room.match?.serve?.server} timeout=${room.match?.cfg.serve.timeout} tick=${room.tick} paused=${room.paused} sockets=${room.players.map((p) => !!p.socketId).join(",")}` : "no room";
+      reject(new Error(`timeout waiting for ${label} (${state})`));
+    }, timeoutMs);
+    const onEvent = (data) => {
+      if (!predicate(data)) return;
+      clearTimeout(timer);
+      socket.off(name, onEvent);
+      resolve(data);
+    };
+    socket.on(name, onEvent);
+  });
+}
 function clientWaitingFor(resumeToken, eventName) {
   const socket = connect(url, { auth: { token: resumeToken }, transports: ["websocket"], reconnection: false, timeout: 3000 });
   clients.push(socket);
@@ -50,10 +67,14 @@ try {
   assert.equal((await request(guest, "room:start")).ok, false, "non-host cannot start");
 
   const snapshot = event(host, "snapshot", 9000);
+  const serveEvent = eventWhere(host, "event", (payload) => payload.type === "serve", 35000, "first serve");
+  const pointEvent = eventWhere(host, "event", (payload) => payload.type === "point", 35000, "point after first serve");
+  const rivalServe = eventWhere(host, "event", (payload) => payload.type === "serve" && payload.who === "bot", 35000, "rival serve");
   assert.equal((await request(host, "room:start")).ok, true);
   await new Promise((resolve) => setTimeout(resolve, 3200));
   const firstSnapshot = await snapshot;
   assert.ok(firstSnapshot.orb && firstSnapshot.players.length === 2);
+  assert.equal(firstSnapshot.winner, null);
   assert.equal(app.rooms.get(created.code).status, "playing");
   const liveRoom = app.rooms.get(created.code);
   assert.deepEqual(liveRoom.players.map((p) => p.fighterId), ["player", "bot"]);
@@ -63,6 +84,13 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   assert.ok(liveRoom.match.fighters.bot.x > guestX + 0.1, "the second human controls the rival slot instead of leaving it to the bot");
+  const served = await serveEvent;
+  assert.ok(["player", "bot"].includes(served.who));
+  assert.equal(app.rooms.get(created.code).status, "playing", "network simulation remains alive through the first serve");
+  const point = await pointEvent;
+  assert.ok(point.winner === "player" || point.winner === "bot");
+  const secondServe = await rivalServe;
+  assert.equal(secondServe.who, "bot", "the other side serves without stopping the room simulation");
   const resumeToken = joined.token;
   guest.disconnect();
   await new Promise((resolve) => setTimeout(resolve, 250));
@@ -87,7 +115,7 @@ try {
   assert.equal((await request(a, "room:end")).ok, true);
   assert.equal((await ended).reason, "host-ended");
 
-  console.log("networktest: salas, host, nomes unicos, snapshot, reconexao 1v1 e vagas/partida 2v2 passaram");
+  console.log("networktest: salas, host, snapshots, controle do segundo jogador, primeiro saque, ponto, saque do rival, reconexao 1v1 e vagas/partida 2v2 passaram");
 } finally {
   for (const socket of clients) socket.disconnect();
   await app.close();

@@ -452,6 +452,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
         ultimateCooldown: f.id === PLAYER ? match.ultimateCooldown : f.aiUltimateCooldown,
       })),
       score: { A: match.state.score.player, B: match.state.score.bot },
+      winner: match.state.winner,
       server: match.serve?.server || null,
       serverTeam: match.serve?.server === PLAYER || match.serve?.server === "A2" ? "A" : "B",
       ruleState: match.rules.state,

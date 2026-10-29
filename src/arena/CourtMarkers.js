@@ -276,13 +276,22 @@ export class ServeRing {
     this.cool = new THREE.Color(0.5, 1.4, 1.8);
     this.gold = new THREE.Color(2.4, 2.0, 0.9);
     this.late = new THREE.Color(1.9, 0.35, 0.3);
+    this.parentWorldQuaternion = new THREE.Quaternion();
+    this.localCameraQuaternion = new THREE.Quaternion();
   }
 
   update(time, camera, ballPos, info, visible) {
     this.group.visible = visible;
     if (!visible) return;
     this.group.position.copy(ballPos);
-    this.group.quaternion.copy(camera.quaternion); // sempre de frente para a câmera
+    // Cancel the arena rotation so the timing ring still faces this player's camera.
+    if (this.group.parent) {
+      this.group.parent.getWorldQuaternion(this.parentWorldQuaternion);
+      this.localCameraQuaternion.copy(this.parentWorldQuaternion).invert();
+      this.group.quaternion.copy(this.localCameraQuaternion.multiply(camera.quaternion));
+    } else {
+      this.group.quaternion.copy(camera.quaternion);
+    }
     const t = info.t;
     let radius;
     if (t <= info.perfectAt)
