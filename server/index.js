@@ -461,7 +461,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
       lastHitter: match.rules.lastHitter,
       bounces: match.rules.bounces,
       serveInfo: match.serveInfo,
-      effects: { frostWall: match.effects.frostWall, frostWallZ: match.effects.frostWallZ, frostWallUsed: match.effects.frostWallUsed, iceRink: match.effects.iceRink, iceRinkTeam: match.effects.iceRinkTeam, overload: match.effects.overload, overloadTeam: match.effects.overloadTeam, tornado: match.effects.tornado },
+      effects: { frostWall: match.effects.frostWall, frostWallZ: match.effects.frostWallZ, frostWallTeam: match.effects.frostWallTeam, frostWallUsed: match.effects.frostWallUsed, iceRink: match.effects.iceRink, iceRinkTeam: match.effects.iceRinkTeam, overload: match.effects.overload, overloadTeam: match.effects.overloadTeam, tornado: match.effects.tornado },
       abilityInfo: match.abilityInfo,
       ack: Object.fromEntries(room.players.map((p) => [p.fighterId, room.lastSeq.get(p.id) ?? -1])),
     };

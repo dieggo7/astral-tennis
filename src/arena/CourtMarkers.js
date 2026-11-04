@@ -185,7 +185,8 @@ export class AbilityFieldVisuals {
       iceMat,
     );
     this.ice.rotation.x = -Math.PI / 2;
-    this.ice.position.set(0, 0.075, -court.length / 4);
+    this.iceZ = court.length / 4;
+    this.ice.position.set(0, 0.075, -this.iceZ);
     this.group.add(this.ice);
 
     const tornadoMat = new THREE.MeshBasicMaterial({
@@ -205,6 +206,9 @@ export class AbilityFieldVisuals {
   update(effects, time) {
     this.wall.visible = effects.frostWall > 0;
     this.ice.visible = effects.iceRink > 0;
+    // a muralha fica no lado de quem lançou; a pista, no lado de quem perdeu tração
+    this.wall.position.z = effects.frostWallZ ?? 6;
+    this.ice.position.z = (effects.iceRinkTeam === "player" ? 1 : -1) * this.iceZ;
     this.tornado.visible = !!effects.tornado;
     this.tornado.rotation.y = time * 8;
     this.tornado.scale.setScalar(

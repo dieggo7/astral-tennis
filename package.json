@@ -2,7 +2,19 @@
   "name": "astral-tennis",
   "version": "0.0.0",
   "private": true,
+  "description": "1. Instale as dependencias com `npm install`.\r 2. (Opcional) Copie `.env.example` para `.env` para ajustar portas e origens.\r 3. Rode `npm run dev`. Isso inicia o Vite em `http://localhost:5173` e o servidor Socket.IO na porta `3001`.\r 4. Abra o endereco do Vite em duas abas ou dois navegadores. Selecione o mesmo formato, crie uma sala, compartilhe o codigo de seis caracteres e entre pela outra aba. Em 2v2, conecte quatro jogadores antes de iniciar.",
+  "homepage": "https://github.com/dieggo7/astral-tennis#readme",
+  "bugs": {
+    "url": "https://github.com/dieggo7/astral-tennis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dieggo7/astral-tennis.git"
+  },
+  "license": "ISC",
+  "author": "",
   "type": "module",
+  "main": "index.js",
   "scripts": {
     "dev": "concurrently -k \"vite --host 0.0.0.0\" \"npm:server\"",
     "server": "node server/index.js",
@@ -11,14 +23,14 @@
     "simtest": "node scripts/simtest.mjs",
     "networktest": "node scripts/networktest.mjs"
   },
-  "devDependencies": {
-    "concurrently": "^10.0.6",
-    "vite": "^8.3.5"
-  },
   "dependencies": {
     "dotenv": "^18.0.9",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
     "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "vite": "^8.3.5"
   }
 }

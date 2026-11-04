@@ -18,6 +18,7 @@ export class Galaxy {
       depthWrite: false,
       depthTest: false,
       fog: false,
+      defines: { GALAXY_DETAIL: 2, FBM_OCTAVES: 4 },
       uniforms: {
         uPhase: { value: 0 },
         uTime: { value: 0 },
@@ -63,7 +64,7 @@ export class Galaxy {
         }
         float fbm(vec3 p) {
           float a = 0.5; float s = 0.0;
-          for (int i = 0; i < 4; i++) {
+          for (int i = 0; i < FBM_OCTAVES; i++) {
             s += a * noise3(p);
             p = p * 2.03 + vec3(1.7, 9.2, 3.1);
             a *= 0.5;
@@ -100,7 +101,11 @@ export class Galaxy {
 
           // Nebulosas em duas camadas.
           float n1 = fbm(rd * 2.2 + vec3(0.0, uPhase * 0.01, 0.0));
+          #if GALAXY_DETAIL >= 1
           float n2 = fbm(rd * 3.6 + vec3(5.0, 1.0, uPhase * 0.015) + n1 * 0.8);
+          #else
+          float n2 = n1;
+          #endif
           vec3 coolNeb = mix(uMid * 1.6, vec3(0.15, 0.35, 1.0), 0.55);
           vec3 warmNeb = mix(uGlow * 1.5, uHot, heat * 0.85);
           col += coolNeb * smoothstep(0.42, 0.78, n1) * 0.55;
@@ -117,7 +122,9 @@ export class Galaxy {
             float a = atan(q.y, q.x);
             float arms = sin(a * 2.0 - log(r + 0.02) * 4.5 + uPhase * 0.18);
             float arm = pow(0.5 + 0.5 * arms, 2.5) * exp(-r * 1.5);
+            #if GALAXY_DETAIL >= 2
             arm *= 0.6 + 0.8 * fbm(vec3(q * 4.0, 1.0));
+            #endif
             float core = exp(-r * r * 22.0);
             vec3 armCol = mix(vec3(0.4, 0.5, 1.0), uHot * 1.2, heat * 0.7 + smoothstep(0.1, 0.5, r) * 0.35);
             col += armCol * arm * 0.75;
@@ -126,9 +133,11 @@ export class Galaxy {
           }
 
           // Estrelas em 3 tamanhos.
-          float st = stars(rd, 70.0, 0.9, 0.22, uTime)
-                   + stars(rd, 36.0, 0.93, 0.2, uTime) * 1.2
+          float st = stars(rd, 36.0, 0.93, 0.2, uTime) * 1.2
                    + stars(rd, 16.0, 0.95, 0.16, uTime) * 1.6;
+          #if GALAXY_DETAIL >= 1
+          st += stars(rd, 70.0, 0.9, 0.22, uTime);
+          #endif
           col += vec3(0.85, 0.9, 1.0) * st * 0.9;
 
           // Leve aquecimento geral conforme a bola acelera.
@@ -145,6 +154,15 @@ export class Galaxy {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = -1000;
     this.group.add(this.mesh);
+  }
+
+  /** 0 = leve (poucas camadas de ruído), 1 = médio, 2 = completo. */
+  setDetail(level) {
+    const d = this.material.defines;
+    if (d.GALAXY_DETAIL === level) return;
+    d.GALAXY_DETAIL = level;
+    d.FBM_OCTAVES = [2, 3, 4][level] ?? 4;
+    this.material.needsUpdate = true;
   }
 
   update(dt, time, intensity) {

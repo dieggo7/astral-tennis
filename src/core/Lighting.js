@@ -15,6 +15,7 @@ export class LightingRig {
       e.directionalIntensity,
     );
     this.mainLight.position.set(-7, 15, 11);
+    this.shadowsAllowed = e.shadowMapEnabled;
     this.mainLight.castShadow = e.shadowMapEnabled;
     const s = this.mainLight.shadow;
     s.mapSize.set(2048, 2048);
@@ -41,6 +42,20 @@ export class LightingRig {
       e.orbDecay,
     );
     this.group.add(this.orbLight);
+  }
+
+  /** size = 0 desliga a sombra projetada; senão ajusta a resolução do mapa de sombra. */
+  setShadowQuality(size) {
+    const l = this.mainLight;
+    const on = size > 0 && this.shadowsAllowed;
+    l.castShadow = on;
+    if (on && l.shadow.mapSize.x !== size) {
+      l.shadow.mapSize.set(size, size);
+      if (l.shadow.map) {
+        l.shadow.map.dispose();
+        l.shadow.map = null;
+      }
+    }
   }
 
   /** Luz do orbe acompanha posição e cor; `boost` (0..1) dá um pulso ao quicar/rebater. */

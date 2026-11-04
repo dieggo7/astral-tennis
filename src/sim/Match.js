@@ -66,6 +66,7 @@ export class Match {
     this.effects = {
       frostWall: 0,
       frostWallZ: 6,
+      frostWallTeam: BOT,
       iceRink: 0,
       iceRinkTeam: BOT,
       tornado: null,
@@ -206,6 +207,7 @@ export class Match {
     this.effects = {
       frostWall: 0,
       frostWallZ: 6,
+      frostWallTeam: BOT,
       iceRink: 0,
       iceRinkTeam: BOT,
       tornado: null,
@@ -344,6 +346,7 @@ export class Match {
     this.effects = {
       frostWall: 0,
       frostWallZ: 6,
+      frostWallTeam: BOT,
       iceRink: 0,
       iceRinkTeam: BOT,
       tornado: null,
@@ -449,6 +452,17 @@ export class Match {
       });
     }
     if (this.intents[BOT]) bi = { ...bi, ...this.intents[BOT] };
+    // --- Process bot ability/ultimate intents in local (non-network) mode ---
+    if (!this.cfg.networkMode && this.phase === "rally") {
+      if (bi.ability && bot.aiAbilityCooldown <= 0) {
+        this.activateAbility(bot);
+        bot.aiAbilityCooldown = cfg.characters[bot.characterId].abilityCooldown;
+      }
+      if (bi.ultimate && bot.aiUltimateCooldown <= 0) {
+        this.activateUltimate(bot);
+        bot.aiUltimateCooldown = cfg.characters[bot.characterId].ultimateCooldown;
+      }
+    }
     const extraIntents = {};
     if (this.teamSize === 2) {
       for (const id of ["A2", "B2"]) {
@@ -545,7 +559,8 @@ export class Match {
       this.bot.moveToward(bi, bot, this.meteor.x, this.meteor.z);
     }
 
-    this.moveFighter(player, pm.moveX, pm.moveZ, dt, player.moveSpeed);
+    const playerIce = this.effects.iceRink > 0 && player.team === this.effects.iceRinkTeam;
+    this.moveFighter(player, pm.moveX, pm.moveZ, dt, player.moveSpeed, playerIce ? 0.24 : 1);
     const botIce = this.effects.iceRink > 0 && bot.team === this.effects.iceRinkTeam;
     this.moveFighter(
       bot,
@@ -743,7 +758,13 @@ export class Match {
       this.effects.frostWall = this.cfg.glacia.wallDuration;
       this.effects.frostWallUsed = false;
       this.effects.frostWallZ = f.sign * this.cfg.glacia.wallZ;
-      this.events.push({ type: "frostWall", duration: this.effects.frostWall });
+      this.effects.frostWallTeam = f.team;
+      this.events.push({
+        type: "frostWall",
+        duration: this.effects.frostWall,
+        z: this.effects.frostWallZ,
+        team: f.team,
+      });
     } else if (id === "zephyr") {
       const b = this.ball;
       if (b.held || b.fallen || this.effects.tornado) {
@@ -783,7 +804,11 @@ export class Match {
     if (id === "glacia") {
       this.effects.iceRink = this.cfg.glacia.iceDuration;
       this.effects.iceRinkTeam = f.team === PLAYER ? BOT : PLAYER;
-      this.events.push({ type: "iceRink", duration: this.effects.iceRink });
+      this.events.push({
+        type: "iceRink",
+        duration: this.effects.iceRink,
+        targetTeam: this.effects.iceRinkTeam,
+      });
     } else if (id === "zephyr") {
       const b = this.ball;
       if (b.held || b.fallen) {
@@ -1174,19 +1199,23 @@ export class Match {
     const res = b.step(dt);
     let verdict = null;
 
+    // Muralha de Cristal: só afeta a bola do ADVERSÁRIO vindo em direção a quem lançou a muralha,
+    // e só uma vez. Ela REDUZ a velocidade da bola (como na lore). Antes ela invertia a bola e
+    // pegava até a rebatida da própria Glacia, causando "dois quiques"/"na rede" contra ela mesma.
+    const wz = this.effects.frostWallZ;
     if (
       this.effects.frostWall > 0 &&
       !this.effects.frostWallUsed &&
-      (previousZ - this.effects.frostWallZ) * (b.z - this.effects.frostWallZ) <=
-        0 &&
+      (previousZ - wz) * (b.z - wz) <= 0 &&
+      Math.abs(previousZ - wz) > 0.001 &&
+      Math.abs(b.z) > Math.abs(previousZ) && // indo para o fundo da quadra de quem lançou
       Math.abs(b.x) <= this.halfW - b.r * 0.5 &&
-      Math.abs(previousZ - this.effects.frostWallZ) > 0.001
+      teamOf(this.rules.lastHitter) !== this.effects.frostWallTeam
     ) {
-      b.vz *= -1;
-      b.z =
-        previousZ < this.effects.frostWallZ
-          ? this.effects.frostWallZ - 0.04
-          : this.effects.frostWallZ + 0.04;
+      const k = this.cfg.glacia.wallSlow ?? 0.55;
+      b.vx *= k;
+      b.vz *= k;
+      b.speed = Math.max(this.cfg.ball.baseSpeed, b.speed * 0.7);
       this.effects.frostWallUsed = true;
       this.events.push({ type: "wallReflect", x: b.x, y: b.y, z: b.z });
     }

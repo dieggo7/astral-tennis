@@ -5,6 +5,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { getModeConfig } from "../config/constants.js";
 import { getFitPoints } from "../config/visual.js";
+import { QUALITY, QUALITY_TIERS, AUTO_QUALITY, resolvePixelRatio } from "../config/quality.js";
 import { Court } from "../arena/Court.js";
 import { LightBarrier } from "../arena/LightBarrier.js";
 import { Obelisks } from "../arena/Obelisks.js";
@@ -58,8 +59,10 @@ export class Game {
     this.clock = new THREE.Clock();
     this.tmp = new THREE.Vector3();
 
+    // antialias do canvas desligado: a cena é desenhada nos render targets do composer
+    // (o AA vem do MSAA deles), então o do canvas só gastava memória e banda.
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: false,
       powerPreference: "high-performance",
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -311,10 +314,92 @@ export class Game {
     });
   }
 
+  // ---------------------------------------------------------------- qualidade gráfica
+  initQuality() {
+    const param = new URLSearchParams(location.search).get("quality");
+    let saved = null;
+    try {
+      saved = localStorage.getItem("astral-quality-auto");
+    } catch {
+      /* sem storage */
+    }
+    this.qualityAuto = !QUALITY[param]; // ?quality=low|medium|high desliga o ajuste automático
+    this.fpsFrames = 0;
+    this.fpsTime = 0;
+    this.fpsWarmup = AUTO_QUALITY.warmupWindows;
+    const start = QUALITY[param] ? param : QUALITY[saved] ? saved : "high";
+    this.applyQuality(start);
+  }
+
+  applyQuality(tier, announce = false) {
+    const q = QUALITY[tier];
+    if (!q) return;
+    this.qualityTier = tier;
+    const w = window.innerWidth,
+      h = window.innerHeight;
+    this.pixelRatio = resolvePixelRatio(q, window.devicePixelRatio);
+    this.renderer.setPixelRatio(this.pixelRatio);
+    this.renderer.setSize(w, h);
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (rt.samples !== q.msaa) {
+        rt.samples = q.msaa;
+        rt.dispose(); // recria o framebuffer com o novo número de amostras
+      }
+    }
+    this.composer.setPixelRatio(this.pixelRatio);
+    this.composer.setSize(w, h);
+    this.bloomPass.enabled = q.bloom && this.arenaConfig.environment.bloomEnabled;
+    this.lightingRig.setShadowQuality(q.shadowMapSize);
+    this.galaxy.setDetail(q.galaxy);
+    updatePointScale(this.renderer, this.camera);
+    this.fpsFrames = 0;
+    this.fpsTime = 0;
+    if (announce) this.toast(`Qualidade: ${tier}`);
+  }
+
+  toast(text) {
+    if (!this.toastEl) {
+      this.toastEl = document.createElement("div");
+      this.toastEl.style.cssText =
+        "position:fixed;left:50%;top:14px;transform:translateX(-50%);padding:8px 14px;border-radius:10px;" +
+        "background:rgba(20,12,50,.85);color:#ffd879;font:600 14px system-ui,sans-serif;z-index:50;pointer-events:none;transition:opacity .3s";
+      document.body.appendChild(this.toastEl);
+    }
+    this.toastEl.textContent = text;
+    this.toastEl.style.opacity = "1";
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => (this.toastEl.style.opacity = "0"), 1800);
+  }
+
+  /** Se o FPS médio de uma janela ficar baixo, desce um nível de qualidade (e lembra para a próxima vez). */
+  autoQuality(dt) {
+    if (!this.qualityAuto || document.hidden) return;
+    this.fpsFrames += 1;
+    this.fpsTime += dt;
+    if (this.fpsTime < AUTO_QUALITY.windowSeconds) return;
+    const fps = this.fpsFrames / this.fpsTime;
+    this.fpsFrames = 0;
+    this.fpsTime = 0;
+    if (this.fpsWarmup > 0) {
+      this.fpsWarmup -= 1; // ignora a 1ª janela (compilação de shaders)
+      return;
+    }
+    const idx = QUALITY_TIERS.indexOf(this.qualityTier);
+    if (fps < AUTO_QUALITY.minFps && idx > 0) {
+      const next = QUALITY_TIERS[idx - 1];
+      this.applyQuality(next, true);
+      try {
+        localStorage.setItem("astral-quality-auto", next);
+      } catch {
+        /* sem storage */
+      }
+    }
+  }
+
   onResize() {
     const w = window.innerWidth,
       h = window.innerHeight;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.pixelRatio ?? Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(w, h);
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
     this.composer.setSize(w, h);
@@ -331,6 +416,17 @@ export class Game {
       );
     });
     window.addEventListener("keydown", (e) => {
+      // G alterna a qualidade gráfica (low -> medium -> high) e desliga o ajuste automático.
+      if (e.code === "KeyG" && !e.repeat) {
+        this.qualityAuto = false;
+        const next = QUALITY_TIERS[(QUALITY_TIERS.indexOf(this.qualityTier) + 1) % QUALITY_TIERS.length];
+        this.applyQuality(next, true);
+        try {
+          localStorage.setItem("astral-quality-auto", next);
+        } catch {
+          /* sem storage */
+        }
+      }
       if (!this.arenaConfig.debug.debugKeys) return;
       if (e.code === "KeyC") this.cameraRig.toggleDebugMode();
       if (e.code === "KeyB") this.bloomPass.enabled = !this.bloomPass.enabled;
@@ -697,7 +793,7 @@ export class Game {
           this.hud.flash("METEORO DEVOLVIDO!", "bad", 1000);
           break;
         case "frostWall":
-          this.burst.emit(0, 1.4, 5.6, {
+          this.burst.emit(0, 1.4, (e.z ?? 6) - Math.sign(e.z ?? 6) * 0.4, {
             count: 44,
             color: "#8beaff",
             speed: 3.5,
@@ -717,10 +813,11 @@ export class Game {
             size: 0.22,
           });
           this.impactWaves.spawn(e.x, e.z, "#8beaff");
-          this.hud.flash("BOLA REBATIDA PELA MURALHA!", "good", 900);
+          this.hud.flash("MURALHA REDUZIU A BOLA!", "good", 900);
           break;
-        case "iceRink":
-          this.burst.emit(0, 0.12, -5, {
+        case "iceRink": {
+          const localTeam = ["bot", "B1", "B2"].includes(this.localFighterId) ? "bot" : "player";
+          this.burst.emit(0, 0.12, e.targetTeam === "player" ? 5 : -5, {
             count: 80,
             color: "#8beaff",
             speed: 5,
@@ -732,9 +829,10 @@ export class Game {
             "PISTA DE PATINAÇÃO",
             "perfect",
             1100,
-            "O rival perdeu tração",
+            e.targetTeam === localTeam ? "Você perdeu tração" : "O rival perdeu tração",
           );
           break;
+        }
         case "gust":
           this.burst.emit(e.x, e.y, e.z, {
             count: 34,
@@ -897,6 +995,8 @@ export class Game {
 
   tick() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    if (!this.qualityTier) this.initQuality();
+    else this.autoQuality(dt);
     const time = this.clock.elapsedTime;
     pointUniforms.uTime.value = time;
 

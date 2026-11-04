@@ -257,7 +257,7 @@ export const gameConfig = {
       ultimateCooldown: 90,
     },
   },
-  glacia: { wallDuration: 5, wallZ: 6, iceDuration: 10 },
+  glacia: { wallDuration: 5, wallZ: 6, wallSlow: 0.55, iceDuration: 10 }, // wallSlow: fator de velocidade da bola ao cruzar a muralha
   zephyr: { gustImpulse: 10, tornadoDuration: 2, tornadoSpeed: 42 },
   volta: {
     stopDuration: 0.5,
@@ -277,6 +277,16 @@ export const gameConfig = {
     aimSpread: 4.5,
     aimMargin: 1.0, // distância mínima das linhas ao mirar
     perfectChance: 0.08, // chance de converter um Parry perfeito em perfeito de verdade
+    // ritmo das habilidades do rival (ver BOT_ABILITY_AI em BotController.js)
+    abilityAI: {
+      thinkMin: 0.3,
+      thinkMax: 0.6,
+      abilityArmMin: 4,
+      abilityArmMax: 9,
+      ultimateArmMin: 6,
+      ultimateArmMax: 12,
+      minGapBetweenUses: 6,
+    },
     home: [0, -9.5],
   },
 };
