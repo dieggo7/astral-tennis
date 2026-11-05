@@ -87,6 +87,11 @@ export class Galaxy {
 
         void main() {
           vec3 dir = normalize(vDir);
+          #if GALAXY_DETAIL == 0
+          float gradient = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
+          vec3 col = mix(uDeep, uMid, smoothstep(0.1, 0.7, gradient));
+          gl_FragColor = vec4(col, 1.0);
+          #else
           float heat = uIntensity;
 
           // Gradiente base: o que a câmera vê está "abaixo do horizonte".
@@ -143,6 +148,7 @@ export class Galaxy {
           // Leve aquecimento geral conforme a bola acelera.
           col *= 0.9 + heat * 0.25;
           gl_FragColor = vec4(col, 1.0);
+          #endif
         }
       `,
     });
