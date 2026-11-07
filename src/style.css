@@ -457,3 +457,113 @@ canvas {
   .ability-name { font-size: 11px; }
   .hud-hint { max-width: calc(100vw - 16px); white-space: normal; text-align: center; }
 }
+
+/* ===================== CONTROLES DE TOQUE ===================== */
+canvas { touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.touch-ui {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: Inter, system-ui, sans-serif;
+}
+body.touch-mode .touch-ui { display: block; }
+body:has(.hud.menu-open) .touch-ui { display: none; }
+.touch-joy {
+  position: absolute;
+  left: calc(22px + env(safe-area-inset-left, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  pointer-events: auto;
+  touch-action: none;
+  background: radial-gradient(circle, rgba(120, 90, 220, 0.28), rgba(30, 18, 70, 0.55));
+  border: 2px solid rgba(255, 216, 121, 0.55);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), inset 0 0 22px rgba(160, 110, 255, 0.25);
+}
+.touch-joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #f2b84b 60%, #c9841a);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.touch-btn {
+  position: absolute;
+  padding: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  touch-action: none;
+  font: 800 14px/1 Inter, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  color: #2a1450;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 0.06s, filter 0.06s;
+}
+.touch-btn.down { transform: scale(0.92); filter: brightness(1.25); }
+.touch-parry {
+  right: calc(22px + env(safe-area-inset-right, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  width: 104px;
+  height: 104px;
+  font-size: 17px;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #f2b84b 62%, #c9841a);
+}
+.touch-smash {
+  right: calc(140px + env(safe-area-inset-right, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  width: 72px;
+  height: 72px;
+  font-size: 11px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #ffc2ec, #d946a8 62%, #8d1f73);
+}
+.touch-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(20, 12, 50, 0.75);
+  color: #ffd879;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: touchTipFade 8s forwards;
+}
+@keyframes touchTipFade { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+.touch-rotate { display: none; }
+@media (orientation: portrait) {
+  body.touch-mode .touch-rotate {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 32px;
+    text-align: center;
+    background: rgba(8, 4, 28, 0.94);
+    color: #ffd879;
+    font: 700 20px Inter, system-ui, sans-serif;
+    pointer-events: auto;
+  }
+}
+body.touch-mode .hud-hint { display: none; }
+body.touch-mode .hud-ability-controls {
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  bottom: calc(146px + env(safe-area-inset-bottom, 0px));
+  width: min(200px, 34vw);
+}

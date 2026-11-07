@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { TouchControls } from "./TouchControls.js";
 
 /**
  * Teclado + mouse -> intents (dados puros) para a simulação.
@@ -21,6 +22,7 @@ export class InputManager {
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.hit = new THREE.Vector3();
     this.aim = { x: 0, z: -6 };
+    this.touch = new TouchControls(this); // só aparece em telas de toque
 
     window.addEventListener("keydown", (e) => {
       if (
@@ -44,6 +46,11 @@ export class InputManager {
       );
     });
     window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "touch") {
+        // no toque, tocar na quadra só MIRA; o parry vem do botão PARRY (TouchControls)
+        this.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+        return;
+      }
       if (e.button === 0) this.pressQueued = true;
       if (e.button === 2) this.strongPressQueued = true;
     });
@@ -71,12 +78,12 @@ export class InputManager {
   /** Intent do frame. O clique é "de borda": só vale uma vez. */
   read(camera, arena) {
     const k = this.keys;
-    const moveX =
+    const moveX = Math.max(-1, Math.min(1,
       (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) -
-      (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
-    const moveZ =
+      (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0) + this.touch.moveX));
+    const moveZ = Math.max(-1, Math.min(1,
       (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0) -
-      (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0);
+      (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) + this.touch.moveZ));
     const aim = this.updateAim(camera, arena);
     const press = this.pressQueued;
     const strongPress = this.strongPressQueued;
