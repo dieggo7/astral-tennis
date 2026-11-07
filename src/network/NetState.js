@@ -18,6 +18,8 @@ export class NetState {
     this.movement = { width: 12, length: 24, accel: 55, minZ: 1.2, swingMoveFactor: 0.5 };
     this.ping = 0;
     this.serverOffset = 0;
+    this.clockSynced = false;
+    this.snapshotInterval = SNAPSHOT_INTERVAL_MS; // o servidor informa o valor real em cada snapshot
   }
 
   setMovementConfig(config) {
@@ -46,12 +48,17 @@ export class NetState {
   push(snapshot) {
     const latest = this.snapshots.at(-1);
     if (latest && snapshot.serverTime <= latest.serverTime) return;
+    if (snapshot.interval) this.snapshotInterval = snapshot.interval;
     const arrival = Date.now();
     if (this.lastSnapshotArrival) {
       const delta = arrival - this.lastSnapshotArrival;
-      const deviation = Math.abs(delta - SNAPSHOT_INTERVAL_MS);
-      this.snapshotJitter += (deviation - this.snapshotJitter) * 0.15;
-      if (this.adaptiveDelay) this.delay = clamp(48 + this.snapshotJitter * 2 + this.ping * 0.08, 48, 100);
+      const deviation = Math.abs(delta - this.snapshotInterval);
+      this.snapshotJitter += (deviation - this.snapshotJitter) * 0.1;
+      if (this.adaptiveDelay) {
+        // atraso de interpolação acompanha o jitter da rede, mas muda devagar (mudança brusca faz a imagem "pular")
+        const wanted = clamp(this.snapshotInterval + 20 + this.snapshotJitter * 3, 50, 180);
+        this.delay += (wanted - this.delay) * 0.08;
+      }
     }
     this.lastSnapshotArrival = arrival;
     this.snapshots.push(snapshot);
@@ -130,12 +137,19 @@ export class NetState {
         } : { ...p };
       });
     } else if (target > after.serverTime) {
-      const ahead = Math.min(0.04, (target - after.serverTime) / 1000);
+      // faltou snapshot (jitter/perda): continua o movimento por até 120 ms em vez de congelar
+      const ahead = Math.min(0.12, (target - after.serverTime) / 1000);
       result.players = result.players.map((fighter) => ({
         ...fighter,
         x: fighter.x + (fighter.vx || 0) * ahead,
         z: fighter.z + (fighter.vz || 0) * ahead,
       }));
+      const orb = result.orb;
+      if (orb && !orb.held && !orb.fallen) {
+        orb.x += (orb.vx || 0) * ahead;
+        orb.z += (orb.vz || 0) * ahead;
+        orb.y = Math.max(orb.r || 0.3, (orb.y || 0) + (orb.vy || 0) * ahead);
+      }
     }
     if (this.localFighterId && this.predicted) {
       const local = result.players.find((p) => p.fighterId === this.localFighterId);

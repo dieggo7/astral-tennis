@@ -18,6 +18,7 @@ export class NetworkClient {
     this.pendingInputDt = 0;
     this.listeners = new Map();
     this.pings = new Map();
+    this.clockSamples = [];
     this.netState = new NetState();
     this.socket = io(url, {
       autoConnect: false,
@@ -33,7 +34,11 @@ export class NetworkClient {
   }
 
   bindSocket() {
-    this.socket.on("connect", () => this.dispatch("connect", {}));
+    this.socket.on("connect", () => {
+      this.clockSamples = [];
+      this.netState.clockSynced = false;
+      this.dispatch("connect", {});
+    });
     this.socket.on("disconnect", (reason) => {
       this.clearPendingInput();
       this.dispatch("disconnect", { reason });
@@ -72,10 +77,17 @@ export class NetworkClient {
       const now = Date.now();
       const rtt = now - mark.sentAt;
       const midpoint = (mark.sentAt + now) / 2;
-      this.netState.ping = rtt;
-      this.netState.serverOffset = serverTime - midpoint;
       this.pings.delete(id);
-      this.dispatch("ping", { rtt, offset: this.netState.serverOffset });
+      // Usa a amostra de MENOR rtt das últimas 8 (a menos afetada por atraso assimétrico) e suaviza,
+      // em vez de pular para o valor de cada ping (isso fazia a imagem dar um "tranco" a cada 5 s).
+      this.clockSamples.push({ rtt, offset: serverTime - midpoint });
+      if (this.clockSamples.length > 8) this.clockSamples.shift();
+      const best = this.clockSamples.reduce((a, b) => (b.rtt < a.rtt ? b : a));
+      const ns = this.netState;
+      ns.ping = ns.ping ? ns.ping * 0.7 + rtt * 0.3 : rtt;
+      ns.serverOffset = ns.clockSynced ? ns.serverOffset + (best.offset - ns.serverOffset) * 0.25 : best.offset;
+      ns.clockSynced = true;
+      this.dispatch("ping", { rtt: ns.ping, offset: ns.serverOffset });
     });
   }
 
