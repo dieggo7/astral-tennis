@@ -6,6 +6,43 @@ import { Match } from "../shared/sim.js";
 
 const clone = () => JSON.parse(JSON.stringify(gameConfig));
 const games = Number(process.argv[2] || 20);
+const boundaryProbe = new Match(clone());
+const playerAtSideline = boundaryProbe.fighters.player;
+playerAtSideline.x = boundaryProbe.halfW - 0.01;
+playerAtSideline.vx = playerAtSideline.moveSpeed;
+boundaryProbe.moveFighter(playerAtSideline, 1, 0, 1 / 120, playerAtSideline.moveSpeed);
+const arenaLimitX = boundaryProbe.halfW + boundaryProbe.court.margin - 0.8;
+if (playerAtSideline.x <= boundaryProbe.halfW || playerAtSideline.x >= arenaLimitX)
+  throw new Error("jogador não ultrapassou a linha da quadra com segurança");
+playerAtSideline.x = arenaLimitX - 0.01;
+playerAtSideline.vx = playerAtSideline.moveSpeed;
+boundaryProbe.moveFighter(playerAtSideline, 1, 0, 1 / 120, playerAtSideline.moveSpeed);
+if (playerAtSideline.x !== arenaLimitX || playerAtSideline.vx !== 0)
+  throw new Error("jogador ultrapassou a borda segura da arena");
+const rivalAtBaseline = boundaryProbe.fighters.bot;
+rivalAtBaseline.z = -boundaryProbe.halfL + 0.01;
+rivalAtBaseline.vz = -rivalAtBaseline.moveSpeed;
+boundaryProbe.moveFighter(rivalAtBaseline, 0, -1, 1 / 120, rivalAtBaseline.moveSpeed);
+const arenaLimitZ = boundaryProbe.halfL + boundaryProbe.court.margin - 0.8;
+if (rivalAtBaseline.z >= -boundaryProbe.halfL || rivalAtBaseline.z <= -arenaLimitZ)
+  throw new Error("rival não ultrapassou a linha da quadra com segurança");
+rivalAtBaseline.z = -arenaLimitZ + 0.01;
+rivalAtBaseline.vz = -rivalAtBaseline.moveSpeed;
+boundaryProbe.moveFighter(rivalAtBaseline, 0, -1, 1 / 120, rivalAtBaseline.moveSpeed);
+if (rivalAtBaseline.z !== -arenaLimitZ || rivalAtBaseline.vz !== 0)
+  throw new Error("rival ultrapassou a borda segura da arena");
+const playerAtNet = boundaryProbe.fighters.player;
+playerAtNet.z = boundaryProbe.cfg.player.minZ + 0.01;
+playerAtNet.vz = -playerAtNet.moveSpeed;
+boundaryProbe.moveFighter(playerAtNet, 0, -1, 1 / 120, playerAtNet.moveSpeed);
+if (playerAtNet.z !== boundaryProbe.cfg.player.minZ || playerAtNet.vz !== 0)
+  throw new Error("jogador atravessou para o lado rival");
+const rivalAtNet = boundaryProbe.fighters.bot;
+rivalAtNet.z = -boundaryProbe.cfg.player.minZ - 0.01;
+rivalAtNet.vz = rivalAtNet.moveSpeed;
+boundaryProbe.moveFighter(rivalAtNet, 0, 1, 1 / 120, rivalAtNet.moveSpeed);
+if (rivalAtNet.z !== -boundaryProbe.cfg.player.minZ || rivalAtNet.vz !== 0)
+  throw new Error("rival atravessou para o lado do jogador");
 const stats = {
   points: 0,
   kinds: {},

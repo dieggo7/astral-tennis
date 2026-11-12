@@ -594,7 +594,8 @@ export class Match {
           const push = (min - d) * 0.5;
           a.x -= (dx / d) * push; a.z -= (dz / d) * push;
           b.x += (dx / d) * push; b.z += (dz / d) * push;
-          this.clampFighterToCourt(a); this.clampFighterToCourt(b);
+          this.clampFighterToArena(a);
+          this.clampFighterToArena(b);
         }
       }
     }
@@ -944,7 +945,7 @@ export class Match {
       f.dashTimer = Math.max(0, f.dashTimer - dt);
       f.vx = f.dashDirX * dash.speed;
       f.vz = f.dashDirZ * dash.speed;
-      this.clampFighterToCourt(f);
+      this.clampFighterToArena(f);
       if (f.dashTimer === 0 || f.dashRemaining <= 0.001) {
         f.dashTimer = 0;
         f.dashRemaining = 0;
@@ -964,20 +965,20 @@ export class Match {
     f.vz += clamp(mz * speed * k - f.vz, -a, a);
     f.x += f.vx * dt;
     f.z += f.vz * dt;
-    this.clampFighterToCourt(f);
+    this.clampFighterToArena(f);
   }
 
-  clampFighterToCourt(f) {
-    const maxX = this.halfW - 0.3;
-    const minZ = this.cfg.player.minZ,
-      maxZ = this.halfL - 0.3;
+  clampFighterToArena(f) {
+    const maxX = this.halfW + this.court.margin - 0.8;
+    const maxZ = this.halfL + this.court.margin - 0.8;
+    const minZ = this.cfg.player.minZ;
     if (f.x > maxX || f.x < -maxX) {
       f.x = clamp(f.x, -maxX, maxX);
       f.vx = 0;
     }
     const zLo = f.sign > 0 ? minZ : -maxZ;
     const zHi = f.sign > 0 ? maxZ : -minZ;
-    if (f.z < zLo || f.z > zHi) {
+    if (f.z > zHi || f.z < zLo) {
       f.z = clamp(f.z, zLo, zHi);
       f.vz = 0;
     }

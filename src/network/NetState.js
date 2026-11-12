@@ -15,7 +15,7 @@ export class NetState {
     this.lastSampleAt = 0;
     this.lastSnapshotArrival = 0;
     this.snapshotJitter = 0;
-    this.movement = { width: 12, length: 24, accel: 55, minZ: 1.2, swingMoveFactor: 0.5 };
+    this.movement = { width: 12, length: 24, margin: 3, minZ: 1.2, accel: 55, swingMoveFactor: 0.5 };
     this.ping = 0;
     this.serverOffset = 0;
     this.clockSynced = false;
@@ -27,6 +27,7 @@ export class NetState {
     this.movement = {
       width: config.court?.width || this.movement.width,
       length: config.court?.length || this.movement.length,
+      margin: config.court?.margin ?? this.movement.margin,
       accel: config.player?.accel || this.movement.accel,
       minZ: config.player?.minZ || this.movement.minZ,
       swingMoveFactor: config.parry?.swingMoveFactor || this.movement.swingMoveFactor,
@@ -176,21 +177,29 @@ function stepMovement(state, input, dt, fighter, config) {
   const speed = fighter.moveSpeed || 9.5;
   const swingFactor = fighter.swinging ? config.swingMoveFactor : 1;
   const accel = config.accel * dt;
-  const vx = state.vx + clamp(moveX * speed * swingFactor - state.vx, -accel, accel);
-  const vz = state.vz + clamp(moveZ * speed * swingFactor - state.vz, -accel, accel);
+  let vx = state.vx + clamp(moveX * speed * swingFactor - state.vx, -accel, accel);
+  let vz = state.vz + clamp(moveZ * speed * swingFactor - state.vz, -accel, accel);
   let x = state.x + vx * dt;
   let z = state.z + vz * dt;
-  const halfWidth = config.width / 2;
-  const halfLength = config.length / 2;
-  const maxX = halfWidth - 0.3;
-  const maxZ = halfLength - 0.3;
+  const maxX = config.width / 2 + config.margin - 0.8;
+  const maxZ = config.length / 2 + config.margin - 0.8;
   const sign = fighter.team === "B" || fighter.team === "bot" || fighter.sign < 0 ? -1 : 1;
   const zLo = sign > 0 ? config.minZ : -maxZ;
   const zHi = sign > 0 ? maxZ : -config.minZ;
-  let nextVx = vx, nextVz = vz;
-  if (x > maxX || x < -maxX) { x = clamp(x, -maxX, maxX); nextVx = 0; }
-  if (z < zLo || z > zHi) { z = clamp(z, zLo, zHi); nextVz = 0; }
-  return { x, z, vx: nextVx, vz: nextVz };
+  if (x > maxX || x < -maxX) {
+    x = clamp(x, -maxX, maxX);
+    vx = 0;
+  }
+  if (z > zHi || z < zLo) {
+    z = clamp(z, zLo, zHi);
+    vz = 0;
+  }
+  return {
+    x,
+    z,
+    vx,
+    vz,
+  };
 }
 
 function interpolateObject(a, b, t) {

@@ -29,11 +29,11 @@ predictedState.setMovementConfig({
   parry: { swingMoveFactor: 0.5 },
 });
 predictedState.setLocalFighter("bot");
-const predictionSnapshot = (serverTime, x, vx, ack) => ({
+const predictionSnapshot = (serverTime, x, vx, ack, z = -5) => ({
   serverTime,
   ack: { bot: ack },
   orb: { x: 0, y: 1, z: 0, vx: 0, vy: 0, vz: 0, speed: 0 },
-  players: [{ fighterId: "bot", team: "B", x, z: -5, vx, vz: 0, yaw: 0, moveSpeed: 9.5, swinging: false }],
+  players: [{ fighterId: "bot", team: "B", x, z, vx, vz: 0, yaw: 0, moveSpeed: 9.5, swinging: false }],
 });
 predictedState.push(predictionSnapshot(1000, 0, 0, -1));
 predictedState.predict({ moveX: 1 }, 1, 1 / 60);
@@ -42,6 +42,32 @@ assert.ok(predictedX > 0, "local prediction accelerates from rest");
 predictedState.push(predictionSnapshot(1050, 0.03, 1.8, 1));
 const reconciledX = predictedState.sample(1051).players[0].x;
 assert.ok(Math.abs(reconciledX - predictedX) < 0.15, "snapshot reconciliation corrects movement smoothly");
+const boundaryPrediction = new NetState({ interpolationDelay: 0 });
+boundaryPrediction.setMovementConfig({
+  court: { width: 12, length: 24, margin: 3 },
+  player: { accel: 55, minZ: 1.2 },
+  parry: { swingMoveFactor: 0.5 },
+});
+boundaryPrediction.setLocalFighter("bot");
+boundaryPrediction.push(predictionSnapshot(2000, 5.6, 0, -1));
+for (let seq = 1; seq <= 60; seq += 1)
+  boundaryPrediction.predict({ moveX: 1 }, seq, 0.05);
+assert.ok(
+  Math.abs(boundaryPrediction.predicted.x - 8.2) < 0.001 &&
+    boundaryPrediction.predicted.vx === 0,
+  "local prediction stops at the safe arena boundary beyond the court line",
+);
+const netPrediction = new NetState({ interpolationDelay: 0 });
+netPrediction.setMovementConfig({
+  court: { width: 12, length: 24, margin: 3 },
+  player: { accel: 55, minZ: 1.2 },
+  parry: { swingMoveFactor: 0.5 },
+});
+netPrediction.setLocalFighter("bot");
+netPrediction.push(predictionSnapshot(3000, 0, 0, -1, -1.3));
+netPrediction.predict({ moveZ: 1 }, 1, 0.05);
+assert.equal(netPrediction.predicted.z, -1.2, "network prediction keeps the rival on its half");
+assert.equal(netPrediction.predicted.vz, 0, "network prediction stops movement at the net");
 
 const app = createGameServer({ port: 0, clientOrigin: "*", logger: { log() {}, error: console.error } });
 const address = await app.listen();
