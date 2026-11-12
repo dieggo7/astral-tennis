@@ -577,7 +577,6 @@ body.touch-mode .hud-ability-controls {
   width: min(200px, 34vw);
 }
 
-/* ===================== BOTÃO DE SOM ===================== */
 .audio-ui {
   position: fixed;
   left: calc(12px + env(safe-area-inset-left, 0px));
