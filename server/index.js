@@ -253,6 +253,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
   function emitErrorToRoom(room, reason) { io.to(room.code).emit("room:error", { reason }); }
 
   io.on("connection", (socket) => {
+    // rajada de pings logo ao conectar, para o cliente acertar o relógio em ~1 s em vez de até 5 s
+    for (let i = 0; i < 6; i += 1) {
+      setTimeout(() => {
+        if (!socket.connected) return;
+        const now = Date.now();
+        socket.emit("clock:ping", { serverTime: now, id: `${now}-${randomBytes(2).toString("hex")}` });
+      }, i * 250);
+    }
     socket.data.resumeToken = typeof socket.handshake.auth?.token === "string" ? socket.handshake.auth.token : "";
     const resumed = checkSession(socket);
     if (resumed) {
@@ -379,6 +387,11 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
         ability: data.ability === true,
         ultimate: data.ultimate === true,
       };
+      // se um input anterior ainda não foi consumido, preserva os "cliques" dele (parry, smash, habilidade)
+      const pendingInput = room.inputs.get(player.fighterId);
+      if (pendingInput) {
+        for (const key of ["press", "strongPress", "ability", "ultimate"]) input[key] = input[key] || !!pendingInput[key];
+      }
       room.inputs.set(player.fighterId, { ...input, seq });
       player.lastInputAt = Date.now();
     });
@@ -403,7 +416,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
     socket.on("clock:pong", (data = {}) => socket.emit("clock:pong", { id: data && typeof data.id === "string" ? data.id : "", serverTime: Date.now() }));
   });
 
-  const tickTimer = setInterval(() => {
+  // Snapshots por segundo = 60 / SNAPSHOT_EVERY (padrão 2 = 30/s). Use SNAPSHOT_EVERY=1 para 60/s.
+  const SNAPSHOT_EVERY = Math.max(1, Math.floor(Number(process.env.SNAPSHOT_EVERY) || 2));
+  const STEP_MS = 1000 / 60;
+  const stepRooms = () => {
     for (const room of rooms.values()) {
       if (room.status !== "playing" || room.paused || !room.match) continue;
       room.tick += 1;
@@ -418,9 +434,36 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
       withRandom(room, () => room.match.update(FIXED_DT, { intents }));
       for (const event of room.match.consumeEvents()) io.to(room.code).emit("event", { ...event, serverTime: Date.now() });
       if (room.match.phase === "over") { finishMatch(room, room.match.state.winner === PLAYER ? "A" : "B"); continue; }
-      if (room.tick % 2 === 0) io.to(room.code).emit("snapshot", makeSnapshot(room));
+      room.sinceSnap = (room.sinceSnap || 0) + 1;
     }
-  }, 1000 / 60);
+  };
+  const flushSnapshots = () => {
+    for (const room of rooms.values()) {
+      if (room.status !== "playing" || room.paused || !room.match) continue;
+      if ((room.sinceSnap || 0) >= SNAPSHOT_EVERY) {
+        room.sinceSnap = 0;
+        io.to(room.code).emit("snapshot", makeSnapshot(room));
+      }
+    }
+  };
+  // Antes: setInterval(1000/60) rodava 1 passo por disparo. Se o timer atrasava (CPU limitada do Render,
+  // timer do Windows), a simulação ficava mais lenta que o relógio e os snapshots saíam irregulares.
+  // Agora o tempo real é acumulado e a simulação recupera os passos atrasados (sempre 60 passos/s em média).
+  let lastLoopAt = performance.now();
+  let loopAcc = 0;
+  const tickTimer = setInterval(() => {
+    const now = performance.now();
+    loopAcc += Math.min(now - lastLoopAt, 250);
+    lastLoopAt = now;
+    let steps = 0;
+    while (loopAcc >= STEP_MS && steps < 6) {
+      loopAcc -= STEP_MS;
+      steps += 1;
+      stepRooms();
+    }
+    if (loopAcc >= STEP_MS) loopAcc = 0; // servidor muito atrasado: descarta o atraso em vez de acelerar o jogo
+    if (steps) flushSnapshots(); // no máximo 1 snapshot por rodada do loop
+  }, 4);
 
   const pingTimer = setInterval(() => {
     const now = Date.now();
@@ -442,7 +485,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), clie
   function makeSnapshot(room) {
     const match = room.match, ball = match.ball;
     return {
-      tick: room.tick, serverTime: Date.now(), phase: match.phase, phaseTime: match.phaseTime,
+      tick: room.tick, serverTime: Date.now(), interval: SNAPSHOT_EVERY * STEP_MS, phase: match.phase, phaseTime: match.phaseTime,
       orb: pick(ball, ["x", "y", "z", "vx", "vy", "vz", "speed", "r", "held", "fallen"]),
       players: Object.values(match.fighters).map((f) => ({
         fighterId: f.id, team: f.team === PLAYER ? "A" : "B", x: f.x, z: f.z, vx: f.vx, vz: f.vz,

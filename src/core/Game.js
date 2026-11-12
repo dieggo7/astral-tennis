@@ -5,6 +5,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { getModeConfig } from "../config/constants.js";
 import { getFitPoints } from "../config/visual.js";
+import { AudioManager } from "../audio/AudioManager.js";
 import { QUALITY, QUALITY_TIERS, AUTO_QUALITY, resolvePixelRatio } from "../config/quality.js";
 import { Court } from "../arena/Court.js";
 import { LightBarrier } from "../arena/LightBarrier.js";
@@ -112,6 +113,7 @@ export class Game {
     // Gameplay: simulação pura (passo fixo) + personagens, marcadores e HUD que só a desenham.
     this.match = new Match(this.gameConfig);
     this.input = new InputManager(this.renderer.domElement, this.gameConfig.court);
+    this.audio = new AudioManager(); // sons e música gerados por código (src/audio/AudioManager.js)
     this.selectedCharacterId = sessionStorage.getItem("astral-character") || MVP_MATCHUP.player;
     this.match.setPlayerCharacter(this.selectedCharacterId);
     this.hud = new Hud(
@@ -596,6 +598,7 @@ export class Game {
     const isFriendly = (id) => teamOfFighter(id) === localTeam;
     const who = (winner) => (isFriendly(winner) ? "Ponto seu time" : "Ponto do rival");
     for (const e of events) {
+      this.audio.onEvent(e, { isFriendly, isLocal, ratio: this.orb.speedRatio });
       switch (e.type) {
         case "start":
           this.hud.hideOverlay();
